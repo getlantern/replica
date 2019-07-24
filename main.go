@@ -74,7 +74,7 @@ func getTorrent(filename string) error {
 		return err
 	}
 	defer out.Body.Close()
-	f, err := os.OpenFile(filename+".torrent", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0750)
+	f, err := os.OpenFile(filename+".torrent", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0640)
 	if err != nil {
 		return xerrors.Errorf("opening output file: %w", err)
 	}
