@@ -34,13 +34,18 @@ func mainErr() error {
 	}
 }
 
+func newSession() *session.Session {
+	return session.Must(session.NewSession(&aws.Config{
+		Region: aws.String("ap-southeast-1"),
+	}))
+}
+
 func upload(args []string) error {
 	return uploadFile(args[0])
 }
 
 func uploadFile(filename string) error {
-	// The session the S3 Uploader will use
-	sess := session.Must(session.NewSession())
+	sess := newSession()
 
 	// Create an uploader with the session and default options
 	uploader := s3manager.NewUploader(sess)
@@ -64,7 +69,7 @@ func uploadFile(filename string) error {
 }
 
 func getTorrent(filename string) error {
-	sess := session.Must(session.NewSession())
+	sess := newSession()
 	svc := s3.New(sess)
 	out, err := svc.GetObjectTorrent(&s3.GetObjectTorrentInput{
 		Bucket: aws.String(bucket),
