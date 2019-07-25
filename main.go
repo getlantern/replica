@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/spf13/cobra"
 	"golang.org/x/xerrors"
 )
 
@@ -24,14 +24,24 @@ func main() {
 }
 
 func mainErr() error {
-	switch os.Args[1] {
-	case "upload":
-		return uploadFile(os.Args[2])
-	case "get-torrent":
-		return getTorrent(os.Args[2])
-	default:
-		return errors.New("unknown command")
-	}
+	cmd := cobra.Command{}
+	cmd.AddCommand(
+		&cobra.Command{
+			Use:  "upload FILE",
+			Args: cobra.ExactArgs(1),
+			RunE: func(cmd *cobra.Command, args []string) error {
+				return uploadFile(args[0])
+			},
+		},
+		&cobra.Command{
+			Use: "get-torrent FILE",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				return getTorrent(args[0])
+			},
+			Args: cobra.ExactArgs(1),
+		},
+	)
+	return cmd.Execute()
 }
 
 func newSession() *session.Session {
