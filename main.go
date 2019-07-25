@@ -4,12 +4,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
+	"net/http"
 	"os"
+	"time"
 
+	"github.com/anacrolix/torrent"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/skratchdot/open-golang/open"
 	"github.com/spf13/cobra"
 	"golang.org/x/xerrors"
 )
@@ -37,6 +42,14 @@ func mainErr() error {
 			Use: "get-torrent FILE",
 			RunE: func(cmd *cobra.Command, args []string) error {
 				return getTorrent(args[0])
+			},
+			Args: cobra.ExactArgs(1),
+		},
+		&cobra.Command{
+			Use: "view-torrent FILE",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				log.Print(viewTorrent(args[0]))
+				return nil
 			},
 			Args: cobra.ExactArgs(1),
 		},
@@ -101,4 +114,47 @@ func getTorrent(filename string) error {
 		return xerrors.Errorf("closing torrent file: %w", f.Close())
 	}
 	return nil
+}
+
+func serveTorrent(torrentFile string, l net.Listener) error {
+	cfg := torrent.NewDefaultClientConfig()
+	cfg.Debug = true
+	cl, err := torrent.NewClient(cfg)
+	if err != nil {
+		return xerrors.Errorf("creating torrent client: %w", err)
+	}
+	defer cl.Close()
+	tor, err := cl.AddTorrentFromFile(torrentFile)
+	if err != nil {
+		return xerrors.Errorf("adding torrent to client: %w", err)
+	}
+	// This can be expensive for end-users, but is helpful when testing when file names are used but the data changes.
+	//tor.VerifyData()
+	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		r := tor.NewReader()
+		defer r.Close()
+		http.ServeContent(w, req, tor.Info().Name, time.Time{}, r)
+	})
+	log.Print("starting http server")
+	return http.Serve(l, nil)
+}
+
+func viewTorrent(torrentFile string) error {
+	l, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		return xerrors.Errorf("creating http server listener: %w", err)
+	}
+	defer l.Close()
+	serveErr := make(chan error)
+	go func() { serveErr <- serveTorrent(torrentFile, l) }()
+	if err := open.Run("http://" + l.Addr().String()); err != nil {
+		return xerrors.Errorf("opening content: %w", err)
+	}
+	select {
+	case err := <-serveErr:
+		if err != nil {
+			return xerrors.Errorf("http server: %w", err)
+		}
+		return nil
+	}
 }
