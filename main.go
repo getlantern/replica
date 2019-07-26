@@ -14,8 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	cli "github.com/jawher/mow.cli"
 	"github.com/skratchdot/open-golang/open"
-	"github.com/spf13/cobra"
 	"golang.org/x/xerrors"
 )
 
@@ -24,37 +24,35 @@ const bucket = "getlantern-replica"
 func main() {
 	err := mainErr()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error in main: %v", err)
 	}
 }
 
+func checkAction(err error) {
+	if err == nil {
+		return
+	}
+	log.Printf("error: %v", err)
+	cli.Exit(1)
+}
+
 func mainErr() error {
-	cmd := cobra.Command{}
-	cmd.AddCommand(
-		&cobra.Command{
-			Use:  "upload FILE",
-			Args: cobra.ExactArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return uploadFile(args[0])
-			},
-		},
-		&cobra.Command{
-			Use: "get-torrent FILE",
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return getTorrent(args[0])
-			},
-			Args: cobra.ExactArgs(1),
-		},
-		&cobra.Command{
-			Use: "view-torrent FILE",
-			RunE: func(cmd *cobra.Command, args []string) error {
-				log.Print(viewTorrent(args[0]))
-				return nil
-			},
-			Args: cobra.ExactArgs(1),
-		},
-	)
-	return cmd.Execute()
+	app := cli.App("replica", "Lantern Replica functions")
+	app.Command("upload", "upload a file", func(cmd *cli.Cmd) {
+		file := cmd.StringArg("FILE", "", "file to upload")
+		cmd.Action = func() {
+			checkAction(uploadFile(*file))
+		}
+	})
+	app.Command("get-torrent", "retrieve torrent file", func(cmd *cli.Cmd) {
+		name := cmd.StringArg("NAME", "", "replica key")
+		cmd.Action = func() { checkAction(getTorrent(*name)) }
+	})
+	app.Command("open-torrent", "open torrent contents", func(cmd *cli.Cmd) {
+		file := cmd.StringArg("FILE", "", "torrent to open")
+		cmd.Action = func() { checkAction(viewTorrent(*file)) }
+	})
+	return app.Run(os.Args)
 }
 
 func newSession() *session.Session {
