@@ -117,6 +117,7 @@ func getTorrent(filename string) error {
 func serveTorrent(torrentFile string, l net.Listener) error {
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.Debug = true
+	cfg.HeaderObfuscationPolicy.Preferred = false
 	cl, err := torrent.NewClient(cfg)
 	if err != nil {
 		return xerrors.Errorf("creating torrent client: %w", err)
