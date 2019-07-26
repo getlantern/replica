@@ -115,7 +115,7 @@ func getTorrent(filename string) error {
 	return nil
 }
 
-func serveTorrent(torrentFile string, l net.Listener) error {
+func viewTorrent(torrentFile string) error {
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.Debug = true
 	cfg.HeaderObfuscationPolicy.Preferred = false
@@ -135,18 +135,13 @@ func serveTorrent(torrentFile string, l net.Listener) error {
 		defer r.Close()
 		http.ServeContent(w, req, tor.Info().Name, time.Time{}, r)
 	})
-	log.Print("starting http server")
-	return http.Serve(l, nil)
-}
-
-func viewTorrent(torrentFile string) error {
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return xerrors.Errorf("creating http server listener: %w", err)
 	}
 	defer l.Close()
 	serveErr := make(chan error)
-	go func() { serveErr <- serveTorrent(torrentFile, l) }()
+	go func() { serveErr <- http.Serve(l, nil) }()
 	if err := open.Run("http://" + l.Addr().String()); err != nil {
 		return xerrors.Errorf("opening content: %w", err)
 	}
