@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -79,11 +80,11 @@ func uploadFile(filename string) error {
 	// Upload the file to S3.
 	result, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(filename),
+		Key:    aws.String(filepath.Base(filename)),
 		Body:   f,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to upload file, %v", err)
+		return xerrors.Errorf("failed to upload file, %w", err)
 	}
 	log.Printf("file uploaded to, %s\n", result.Location)
 	return nil
@@ -100,7 +101,7 @@ func getTorrent(filename string) error {
 		return err
 	}
 	defer out.Body.Close()
-	f, err := os.OpenFile(filename+".torrent", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0640)
+	f, err := os.OpenFile(filepath.Base(filename)+".torrent", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0640)
 	if err != nil {
 		return xerrors.Errorf("opening output file: %w", err)
 	}
