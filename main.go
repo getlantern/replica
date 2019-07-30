@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	_ "github.com/anacrolix/envpprof"
 	"github.com/anacrolix/torrent"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
