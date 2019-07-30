@@ -40,19 +40,21 @@ func checkAction(err error) {
 
 func mainErr() error {
 	app := cli.App("replica", "Lantern Replica functions")
-	app.Command("upload", "upload a file", func(cmd *cli.Cmd) {
+	app.Command("upload", "uploads a file to S3 and returns the S3 key", func(cmd *cli.Cmd) {
 		file := cmd.StringArg("FILE", "", "file to upload")
 		cmd.Action = func() {
 			checkAction(uploadFile(*file))
 		}
 	})
-	app.Command("get-torrent", "retrieve torrent file", func(cmd *cli.Cmd) {
-		name := cmd.StringArg("NAME", "", "replica key")
+	app.Command("get-torrent", "retrieve BitTorrent metainfo for a Replica S3 key", func(cmd *cli.Cmd) {
+		name := cmd.StringArg("NAME", "", "Replica S3 object name")
 		cmd.Action = func() { checkAction(getTorrent(*name)) }
 	})
 	app.Command("open-torrent", "open torrent contents", func(cmd *cli.Cmd) {
 		file := cmd.StringArg("FILE", "", "torrent to open")
-		cmd.Action = func() { checkAction(viewTorrent(*file)) }
+		index := cmd.IntOpt("index i", 0, "torrent file index to open for multi-file torrents")
+		debug := cmd.BoolOpt("debug d", false, "debug torrent client")
+		cmd.Action = func() { checkAction(viewTorrent(*file, *index, *debug)) }
 	})
 	return app.Run(os.Args)
 }
@@ -75,19 +77,22 @@ func uploadFile(filename string) error {
 
 	f, err := os.Open(filename)
 	if err != nil {
-		return fmt.Errorf("failed to open file %q, %v", filename, err)
+		return fmt.Errorf("failed to open file %q: %v", filename, err)
 	}
+
+	s3Key := filepath.Base(filename)
 
 	// Upload the file to S3.
 	result, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(filepath.Base(filename)),
+		Key:    aws.String(s3Key),
 		Body:   f,
 	})
 	if err != nil {
 		return xerrors.Errorf("failed to upload file, %w", err)
 	}
-	log.Printf("file uploaded to, %s\n", result.Location)
+	log.Printf("file uploaded to %q\n", result.Location)
+	fmt.Println(s3Key)
 	return nil
 }
 
@@ -106,6 +111,7 @@ func getTorrent(filename string) error {
 	if err != nil {
 		return xerrors.Errorf("opening output file: %w", err)
 	}
+	log.Printf("created %q", f.Name())
 	defer f.Close()
 	if _, err := io.Copy(f, out.Body); err != nil {
 		return xerrors.Errorf("copying torrent: %w", err)
@@ -116,9 +122,9 @@ func getTorrent(filename string) error {
 	return nil
 }
 
-func viewTorrent(torrentFile string) error {
+func viewTorrent(torrentFile string, fileIndex int, debugClient bool) error {
 	cfg := torrent.NewDefaultClientConfig()
-	cfg.Debug = true
+	cfg.Debug = debugClient
 	cfg.HeaderObfuscationPolicy.Preferred = false
 	cl, err := torrent.NewClient(cfg)
 	if err != nil {
@@ -132,10 +138,18 @@ func viewTorrent(torrentFile string) error {
 	if err != nil {
 		return xerrors.Errorf("adding torrent to client: %w", err)
 	}
-	// This can be expensive for end-users, but is helpful when testing when file names are used but the data changes.
+
+	if fileIndex < 0 || fileIndex >= len(tor.Files()) {
+		return xerrors.Errorf("file index out of bounds (torrent has %d files)", len(tor.Files()))
+	}
+
+	// This can be expensive for end-users, but is helpful when testing when file names are used but
+	// the data changes.
+
 	//tor.VerifyData()
+
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		r := tor.NewReader()
+		r := tor.Files()[fileIndex].NewReader()
 		defer r.Close()
 		http.ServeContent(w, req, tor.Info().Name, time.Time{}, r)
 	})
