@@ -158,6 +158,7 @@ func viewTorrent(torrentFile string, fileIndex int, debugClient bool) error {
 		return xerrors.Errorf("creating http server listener: %w", err)
 	}
 	defer l.Close()
+	log.Printf("http server at %v", l.Addr())
 	serveErr := make(chan error)
 	go func() { serveErr <- http.Serve(l, nil) }()
 	if err := open.Run("http://" + l.Addr().String()); err != nil {
