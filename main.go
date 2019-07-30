@@ -151,7 +151,7 @@ func viewTorrent(torrentFile string, fileIndex int, debugClient bool) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		r := tor.Files()[fileIndex].NewReader()
 		defer r.Close()
-		http.ServeContent(w, req, tor.Info().Name, time.Time{}, r)
+		http.ServeContent(w, req, "", time.Time{}, r)
 	})
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
