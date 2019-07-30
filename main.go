@@ -125,6 +125,9 @@ func viewTorrent(torrentFile string) error {
 		return xerrors.Errorf("creating torrent client: %w", err)
 	}
 	defer cl.Close()
+	http.HandleFunc("/torrentClientStatus", func(w http.ResponseWriter, r *http.Request) {
+		cl.WriteStatus(w)
+	})
 	tor, err := cl.AddTorrentFromFile(torrentFile)
 	if err != nil {
 		return xerrors.Errorf("adding torrent to client: %w", err)
