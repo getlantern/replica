@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net"
@@ -52,9 +54,8 @@ func mainErr() error {
 	})
 	app.Command("open-torrent", "open torrent contents", func(cmd *cli.Cmd) {
 		file := cmd.StringArg("FILE", "", "torrent to open")
-		index := cmd.IntOpt("index i", 0, "torrent file index to open for multi-file torrents")
 		debug := cmd.BoolOpt("debug d", false, "debug torrent client")
-		cmd.Action = func() { checkAction(viewTorrent(*file, *index, *debug)) }
+		cmd.Action = func() { checkAction(viewTorrent(*file, *debug)) }
 	})
 	return app.Run(os.Args)
 }
@@ -122,7 +123,7 @@ func getTorrent(filename string) error {
 	return nil
 }
 
-func viewTorrent(torrentFile string, fileIndex int, debugClient bool) error {
+func viewTorrent(torrentFile string, debugClient bool) error {
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.Debug = debugClient
 	cfg.HeaderObfuscationPolicy.Preferred = false
@@ -139,20 +140,13 @@ func viewTorrent(torrentFile string, fileIndex int, debugClient bool) error {
 		return xerrors.Errorf("adding torrent to client: %w", err)
 	}
 
-	if fileIndex < 0 || fileIndex >= len(tor.Files()) {
-		return xerrors.Errorf("file index out of bounds (torrent has %d files)", len(tor.Files()))
-	}
-
 	// This can be expensive for end-users, but is helpful when testing when file names are used but
 	// the data changes.
 
 	//tor.VerifyData()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		r := tor.Files()[fileIndex].NewReader()
-		defer r.Close()
-		http.ServeContent(w, req, "", time.Time{}, r)
-	})
+	mux := http.NewServeMux()
+	setupMux(mux, tor)
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		return xerrors.Errorf("creating http server listener: %w", err)
@@ -160,7 +154,7 @@ func viewTorrent(torrentFile string, fileIndex int, debugClient bool) error {
 	defer l.Close()
 	log.Printf("http server at %v", l.Addr())
 	serveErr := make(chan error)
-	go func() { serveErr <- http.Serve(l, nil) }()
+	go func() { serveErr <- http.Serve(l, mux) }()
 	if err := open.Run("http://" + l.Addr().String()); err != nil {
 		return xerrors.Errorf("opening content: %w", err)
 	}
@@ -170,5 +164,36 @@ func viewTorrent(torrentFile string, fileIndex int, debugClient bool) error {
 			return xerrors.Errorf("http server: %w", err)
 		}
 		return nil
+	}
+}
+
+func setupMux(m *http.ServeMux, t *torrent.Torrent) {
+	for _, f := range t.Files() {
+		m.Handle("/"+f.DisplayPath(), fileHandler(f))
+	}
+	m.Handle("/", contentsHandler(t))
+}
+
+var contentPageTemplate = template.Must(template.New("contents").Parse(`
+{{ range . }}
+	<a href="/{{ .DisplayPath }}">{{ .DisplayPath }}</a><br>
+{{ end }}
+`))
+
+func contentsHandler(t *torrent.Torrent) http.HandlerFunc {
+	var buf bytes.Buffer
+	if err := contentPageTemplate.Execute(&buf, t.Files()); err != nil {
+		panic(err)
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Write(buf.Bytes())
+	}
+}
+
+func fileHandler(f *torrent.File) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		r := f.NewReader()
+		defer r.Close()
+		http.ServeContent(w, req, "", time.Time{}, r)
 	}
 }
