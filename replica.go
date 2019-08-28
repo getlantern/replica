@@ -23,10 +23,6 @@ func newSession() *session.Session {
 	}))
 }
 
-func upload(args []string) error {
-	return UploadFile(args[0])
-}
-
 func UploadFile(filename string) error {
 	sess := newSession()
 
