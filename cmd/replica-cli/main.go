@@ -29,7 +29,14 @@ func mainErr() error {
 	app.Command("upload", "uploads a file to S3 and returns the S3 key", func(cmd *cli.Cmd) {
 		file := cmd.StringArg("FILE", "", "file to upload")
 		cmd.Action = func() {
-			checkAction(replica.UploadFile(*file))
+			checkAction(func() error {
+				key, err := replica.UploadFile(*file)
+				if err != nil {
+					return err
+				}
+				log.Printf("uploaded to %q", key)
+				return nil
+			}())
 		}
 	})
 	app.Command("get-torrent", "retrieve BitTorrent metainfo for a Replica S3 key", func(cmd *cli.Cmd) {
