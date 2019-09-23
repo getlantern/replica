@@ -1,6 +1,7 @@
 package replica
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 
 	_ "github.com/anacrolix/envpprof"
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -81,4 +83,26 @@ func GetTorrent(key string) error {
 		return xerrors.Errorf("closing torrent file: %w", f.Close())
 	}
 	return nil
+}
+
+func IterUploads(dir string, f func(mi *metainfo.MetaInfo, err error)) error {
+	return filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			f(nil, err)
+			return nil
+		}
+		if fi.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) != ".torrent" {
+			return nil
+		}
+		mi, err := metainfo.LoadFromFile(path)
+		if err != nil {
+			f(nil, fmt.Errorf("error loading metainfo from file %q: %w", path, err))
+			return nil
+		}
+		f(mi, nil)
+		return nil
+	})
 }
