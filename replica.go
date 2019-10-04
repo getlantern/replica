@@ -85,6 +85,7 @@ func GetTorrent(key string) error {
 	return nil
 }
 
+// Walks the torrent files stored in the directory.
 func IterUploads(dir string, f func(mi *metainfo.MetaInfo, err error)) error {
 	return filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
