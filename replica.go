@@ -49,6 +49,26 @@ func UploadFile(filename string) (string, error) {
 	return s3Key, Upload(f, s3Key)
 }
 
+func DeleteFile(s3key string) error {
+	sess := newSession()
+	svc := s3.New(sess)
+	input := &s3.DeleteObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(s3key),
+	}
+	_, err := svc.DeleteObject(input)
+	if err != nil {
+		return xerrors.Errorf("deleting s3 key: %w", err)
+	}
+
+	uploadsKey := path.Dir(filepath.Join(os.TempDir(), "replica/uploads", s3key))
+	err = os.RemoveAll(uploadsKey)
+	if err != nil {
+		return xerrors.Errorf("failed to delete tmp/replica/uploads file", err)
+	}
+	return nil
+}
+
 // Returns the object metainfo for the given key.
 func GetObjectTorrent(key string) (io.ReadCloser, error) {
 	sess := newSession()
