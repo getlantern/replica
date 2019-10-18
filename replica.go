@@ -1,7 +1,6 @@
 package replica
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -100,7 +99,7 @@ func GetTorrent(key string) error {
 // Walks the torrent files stored in the directory.
 func IterUploads(dir string, f func(mi *metainfo.MetaInfo, err error)) error {
 	entries, err := ioutil.ReadDir(dir)
-	if errors.Is(err, os.ErrNotExist) {
+	if os.IsNotExist(err) {
 		return nil
 	}
 	if err != nil {
