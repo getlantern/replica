@@ -1,8 +1,10 @@
 package replica
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -97,23 +99,21 @@ func GetTorrent(key string) error {
 
 // Walks the torrent files stored in the directory.
 func IterUploads(dir string, f func(mi *metainfo.MetaInfo, err error)) error {
-	return filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+	entries, err := ioutil.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		p := filepath.Join(dir, e.Name())
+		mi, err := metainfo.LoadFromFile(p)
 		if err != nil {
-			f(nil, err)
-			return nil
-		}
-		if fi.IsDir() {
-			return nil
-		}
-		if filepath.Ext(path) != ".torrent" {
-			return nil
-		}
-		mi, err := metainfo.LoadFromFile(path)
-		if err != nil {
-			f(nil, fmt.Errorf("error loading metainfo from file %q: %w", path, err))
-			return nil
+			f(nil, fmt.Errorf("loading metainfo from file %q: %w", p, err))
+			continue
 		}
 		f(mi, nil)
-		return nil
-	})
+	}
+	return nil
 }
