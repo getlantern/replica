@@ -50,23 +50,13 @@ func UploadFile(filename string) (string, error) {
 }
 
 func DeleteFile(s3key string) error {
-	sess := newSession()
-	svc := s3.New(sess)
+	svc := s3.New(newSession())
 	input := &s3.DeleteObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(s3key),
 	}
 	_, err := svc.DeleteObject(input)
-	if err != nil {
-		return xerrors.Errorf("deleting s3 key: %w", err)
-	}
-
-	uploadsKey := path.Dir(filepath.Join(os.TempDir(), "replica/uploads", s3key))
-	err = os.RemoveAll(uploadsKey)
-	if err != nil {
-		return xerrors.Errorf("failed to delete tmp/replica/uploads file", err)
-	}
-	return nil
+	return err
 }
 
 // Returns the object metainfo for the given key.
