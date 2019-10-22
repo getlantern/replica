@@ -12,6 +12,7 @@ import (
 	_ "github.com/anacrolix/envpprof"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -22,7 +23,9 @@ const bucket = "getlantern-replica"
 
 func newSession() *session.Session {
 	return session.Must(session.NewSession(&aws.Config{
-		Region: aws.String("ap-southeast-1"),
+		Credentials: credentials.AnonymousCredentials,
+		Region:      aws.String("ap-southeast-1"),
+		//CredentialsChainVerboseErrors: aws.Bool(true),
 	}))
 }
 
