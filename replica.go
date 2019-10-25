@@ -19,12 +19,19 @@ import (
 	"golang.org/x/xerrors"
 )
 
-const bucket = "getlantern-replica"
+const (
+	bucket = "getlantern-replica"
+	region = "ap-southeast-1"
+)
 
 func newSession() *session.Session {
 	return session.Must(session.NewSession(&aws.Config{
-		Credentials: credentials.AnonymousCredentials,
-		Region:      aws.String("ap-southeast-1"),
+		Credentials: credentials.NewStaticCredentials(
+			"AKIAZYODAL6XPNG54AWW",
+			"Jad1iyAZM0/fxJOmWNeuwWHe7olcOu0TjMPW0Erf",
+			"",
+		),
+		Region: aws.String(region),
 		//CredentialsChainVerboseErrors: aws.Bool(true),
 	}))
 }
