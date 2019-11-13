@@ -1,9 +1,9 @@
 use failure::{ensure, Error};
+use human_size::{Byte, Kilobyte};
 use rusoto_core::Region;
 use rusoto_s3::*;
 use rusoto_sqs::Sqs;
 use uuid::Uuid;
-use human_size::{Byte,Kilobyte};
 
 const REGION: Region = Region::ApSoutheast1;
 
@@ -13,12 +13,24 @@ fn main() {
         let key = obj.key.as_ref().unwrap();
         println!(
             "{:>12} {} {:?}",
-            format!("{:.1}",human_size::SpecificSize::new(obj.size.unwrap() as f64, Byte).unwrap().into::<Kilobyte>()),
+            // Only handles the precision flag, so we have to wrap it with another format.
+            format!(
+                "{:.1}",
+                human_size::SpecificSize::new(obj.size.unwrap() as f64, Byte)
+                    .unwrap()
+                    .into::<Kilobyte>()
+            ),
             obj.key.as_ref().unwrap(),
             tokenize_object_key(key)
         );
     }
     receive_s3_events()
+}
+
+#[test]
+fn test_human_byte_size_ignores_padding() {
+	// When this fails, maybe human_size handles padding.
+	assert_eq!(format!("{:5}", human_size::SpecificSize::new(1, Byte).unwrap()), "1 B")
 }
 
 fn get_all_objects() -> Vec<Object> {
