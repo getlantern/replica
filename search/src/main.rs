@@ -1,5 +1,4 @@
 #![feature(proc_macro_hygiene, decl_macro)]
-#[macro_use]
 extern crate rocket;
 use failure::{ensure, Error};
 use human_size::{Byte, Kilobyte};
@@ -8,36 +7,12 @@ use rusoto_s3::*;
 use rusoto_sqs::Sqs;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
+mod server;
 
 const REGION: Region = Region::ApSoutheast1;
 
-struct SearchQuery(Vec<String>);
-
-impl<'a> rocket::request::FromQuery<'a> for SearchQuery {
-    type Error = ();
-    fn from_query(q: rocket::request::Query) -> Result<Self, Self::Error> {
-        Ok(SearchQuery(
-            q.into_iter()
-                .map(|fi| fi.key_value_decoded())
-                .filter_map(|(k, v)| if k == "term" { Some(v) } else { None })
-                .collect(),
-        ))
-    }
-}
-
-#[get("/?<rest..>")]
-fn search(rest: SearchQuery, index: rocket::State<Index>) {
-    for t in rest.0 {
-        if let Some(keys) = index.terms.get(&t) {
-            for k in keys {
-                println!("{}", k)
-            }
-        }
-    }
-}
-
 #[derive(Default)]
-struct Index {
+pub struct Index {
     terms: HashMap<String, HashSet<String>>,
     keys: HashSet<String>,
 }
@@ -58,7 +33,7 @@ fn main() {
     for obj in &objects {
         let key = obj.key.as_ref().unwrap();
         if let Err(err) = index.add_key(key) {
-        	eprintln!("error adding {:?} to index: {}", key, err)
+            eprintln!("error adding {:?} to index: {}", key, err)
         }
         println!(
             "{:>12} {} {:?}",
@@ -74,10 +49,7 @@ fn main() {
         );
     }
     std::thread::spawn(receive_s3_events);
-    rocket::ignite()
-        .mount("/", routes![search])
-        .manage(index)
-        .launch();
+    server::run_server(index);
 }
 
 #[test]
