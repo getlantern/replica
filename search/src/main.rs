@@ -59,8 +59,8 @@ fn get_all_objects() -> Vec<Object> {
 fn tokenize_object_key(key: &str) -> Result<Vec<String>, Error> {
     ensure!(key.len() > 37);
     Uuid::parse_str(&key[..36])?;
-    Ok(key[37..]
-        .split_whitespace()
+    let name = &key[37..];
+    Ok(name.rsplitn(2,'.').map(str::split_whitespace).flatten()
         .map(ToString::to_string)
         .collect::<Vec<String>>())
 }
