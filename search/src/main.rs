@@ -5,30 +5,14 @@ use human_size::{Byte, Kilobyte};
 use rusoto_core::Region;
 use rusoto_s3::*;
 use rusoto_sqs::Sqs;
-use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
+mod search;
 mod server;
 
 const REGION: Region = Region::ApSoutheast1;
 
-#[derive(Default)]
-pub struct Index {
-    terms: HashMap<String, HashSet<String>>,
-    keys: HashSet<String>,
-}
-
-impl Index {
-    fn add_key(&mut self, key: &str) -> Result<(), Error> {
-        for t in tokenize_object_key(key)? {
-            self.terms.entry(t).or_default().insert(key.to_owned());
-        }
-        self.keys.insert(key.to_owned());
-        Ok(())
-    }
-}
-
 fn main() {
-    let mut index: Index = Default::default();
+    let mut index: search::Index = Default::default();
     let objects = get_all_objects();
     for obj in &objects {
         let key = obj.key.as_ref().unwrap();

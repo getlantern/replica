@@ -1,5 +1,5 @@
-use crate::Index;
-use rocket::{get, routes};
+use crate::search::Index;
+use rocket::{get, routes, State};
 
 pub struct SearchQuery(Vec<String>);
 
@@ -16,18 +16,11 @@ impl<'a> rocket::request::FromQuery<'a> for SearchQuery {
 }
 
 #[get("/?<rest..>")]
-pub fn search(rest: SearchQuery, index: rocket::State<Index>) -> rocket::response::Content<String> {
-    for t in rest.0 {
-        if let Some(keys) = index.terms.get(&t) {
-            for k in keys {
-                println!("{}", k)
-            }
-        }
-    }
-    rocket::response::Content(
-        rocket::http::ContentType::new("text", "uri-list"),
-        "".to_owned(),
-    )
+pub fn search(rest: SearchQuery, index: State<Index>) -> rocket::response::Content<String> {
+    let mut keys = index.get_matches(rest.0.iter());
+    keys.push("".to_owned());
+    let body = keys.join("\n");
+    rocket::response::Content(rocket::http::ContentType::new("text", "uri-list"), body)
 }
 
 pub fn run_server(index: Index) {
