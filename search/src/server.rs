@@ -17,7 +17,10 @@ impl<'a> rocket::request::FromQuery<'a> for SearchQuery {
 }
 
 #[get("/?<rest..>")]
-pub fn search(rest: SearchQuery, index: State<Arc<Mutex<Index>>>) -> rocket::response::Content<String> {
+pub fn search(
+    rest: SearchQuery,
+    index: State<Arc<Mutex<Index>>>,
+) -> rocket::response::Content<String> {
     let mut keys = index.lock().unwrap().get_matches(rest.0.iter());
     keys.push("".to_owned());
     let body = keys.join("\n");
