@@ -1,10 +1,12 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 extern crate rocket;
+use crate::search::Index;
 use failure::{ensure, Error};
 use human_size::{Byte, Kilobyte};
 use rusoto_core::Region;
 use rusoto_s3::*;
 use rusoto_sqs::Sqs;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 mod search;
 mod server;
@@ -12,11 +14,11 @@ mod server;
 const REGION: Region = Region::ApSoutheast1;
 
 fn main() {
-    let mut index: search::Index = Default::default();
+    let index = Arc::new(Mutex::new(search::Index::default()));
     let objects = get_all_objects();
     for obj in &objects {
         let key = obj.key.as_ref().unwrap();
-        if let Err(err) = index.add_key(key) {
+        if let Err(err) = index.lock().unwrap().add_key(key) {
             eprintln!("error adding {:?} to index: {}", key, err)
         }
         println!(
@@ -32,7 +34,10 @@ fn main() {
             tokenize_object_key(key)
         );
     }
-    std::thread::spawn(receive_s3_events);
+    {
+        let index = Arc::clone(&index);
+        std::thread::spawn(move || receive_s3_events(&index));
+    }
     server::run_server(index);
 }
 
@@ -82,7 +87,7 @@ fn tokenize_object_key(key: &str) -> Result<Vec<String>, Error> {
 
 const QUEUE_URL: &str = "https://sqs.ap-southeast-1.amazonaws.com/670960738222/replica-s3-events";
 
-fn receive_s3_events() {
+fn receive_s3_events(index: &Mutex<Index>) {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     loop {
         let input = rusoto_sqs::ReceiveMessageRequest {

@@ -28,11 +28,7 @@ impl Index {
             Some(i) => i,
             None => return Default::default(),
         };
-        let mut all: HashSet<String> = self
-            .terms
-            .get(first)
-            .cloned()
-            .unwrap_or(Default::default());
+        let mut all: HashSet<String> = self.terms.get(first).cloned().unwrap_or(Default::default());
         for t in tokens {
             all = all
                 .intersection(self.terms.get(&t).unwrap())

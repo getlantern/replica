@@ -1,5 +1,6 @@
 use crate::search::Index;
 use rocket::{get, routes, State};
+use std::sync::{Arc, Mutex};
 
 pub struct SearchQuery(Vec<String>);
 
@@ -16,14 +17,14 @@ impl<'a> rocket::request::FromQuery<'a> for SearchQuery {
 }
 
 #[get("/?<rest..>")]
-pub fn search(rest: SearchQuery, index: State<Index>) -> rocket::response::Content<String> {
-    let mut keys = index.get_matches(rest.0.iter());
+pub fn search(rest: SearchQuery, index: State<Arc<Mutex<Index>>>) -> rocket::response::Content<String> {
+    let mut keys = index.lock().unwrap().get_matches(rest.0.iter());
     keys.push("".to_owned());
     let body = keys.join("\n");
     rocket::response::Content(rocket::http::ContentType::new("text", "uri-list"), body)
 }
 
-pub fn run_server(index: Index) {
+pub fn run_server(index: Arc<Mutex<Index>>) {
     rocket::ignite()
         .mount("/", routes![search])
         .manage(index)
