@@ -10,12 +10,16 @@ pub struct Index {
 }
 
 impl Index {
-    pub fn add_key(&mut self, key: &str) -> Result<(), Error> {
-        for t in crate::tokenize_object_key(key)? {
+    pub fn add_key(&mut self, key: &str) -> Result<(), String> {
+        for t in crate::tokenize_object_key(key).map_err(|e| e.to_string())? {
             self.terms.entry(t).or_default().insert(key.to_owned());
         }
         self.keys.insert(key.to_owned());
         Ok(())
+    }
+
+    pub fn remove_key(&mut self, key: &str) -> Result<(), String> {
+        unimplemented!();
     }
 
     pub fn get_matches<'a, I, K: 'a>(&self, mut tokens: I) -> Vec<String>
