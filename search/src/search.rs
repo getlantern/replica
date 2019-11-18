@@ -1,5 +1,4 @@
 use crate::s3::tokenize_object_key;
-use failure::Error;
 use std::collections::HashMap;
 
 use std::collections::hash_map::Entry;

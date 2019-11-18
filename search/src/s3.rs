@@ -1,14 +1,18 @@
 use crate::search::Index;
-use failure::ensure;
 
 use rusoto_core::Region;
 use rusoto_s3::*;
-use rusoto_sqs::Sqs;
-use std::error::Error;
+use rusoto_sns::*;
+use rusoto_sqs::*;
+use std::collections::HashMap;
+
+use serde_json::json;
 use std::sync::Mutex;
 use uuid::Uuid;
 
 const REGION: Region = Region::ApSoutheast1;
+const TEST_BOUNDARIES: bool = false;
+const ACCOUNT_ID: &str = "670960738222";
 
 pub fn get_all_objects() -> Vec<Object> {
     let s3 = S3Client::new(REGION);
@@ -17,7 +21,11 @@ pub fn get_all_objects() -> Vec<Object> {
     loop {
         let req = ListObjectsV2Request {
             bucket: "getlantern-replica".to_string(),
-            max_keys: Some(2),
+            max_keys: if TEST_BOUNDARIES {
+                Some(2)
+            } else {
+                Default::default()
+            },
             continuation_token: token.clone(),
             ..Default::default()
         };
@@ -53,8 +61,6 @@ pub fn tokenize_object_key(key: &str) -> std::result::Result<Vec<String>, String
         .collect::<Vec<String>>())
 }
 
-const QUEUE_URL: &str = "https://sqs.ap-southeast-1.amazonaws.com/670960738222/replica-s3-events";
-
 fn handle_event(name: &str, key: &str, index: &Mutex<Index>) -> std::result::Result<(), String> {
     match name {
         "ObjectCreated:Put" => index.lock().unwrap().add_key(key),
@@ -63,13 +69,12 @@ fn handle_event(name: &str, key: &str, index: &Mutex<Index>) -> std::result::Res
     }
 }
 
-pub fn receive_s3_events(index: &Mutex<Index>) {
+pub fn receive_s3_events(index: &Mutex<Index>, queue_url: &String) {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     loop {
         let input = rusoto_sqs::ReceiveMessageRequest {
-            queue_url: QUEUE_URL.to_string(),
-            // wait_time_seconds: Some(20),
-            wait_time_seconds: Some(2),
+            queue_url: queue_url.clone(),
+            wait_time_seconds: if TEST_BOUNDARIES { Some(2) } else { Some(20) },
             ..Default::default()
         };
 
@@ -91,15 +96,21 @@ pub fn receive_s3_events(index: &Mutex<Index>) {
             // {
             //     eprintln!("error deleting message: {}", err);
             // }
-            let value: serde_json::Value = serde_json::from_str(body.as_str()).unwrap();
-            println!("got message: {:#?}", value);
-            for obj in value["Records"].as_array().unwrap() {
-                if let Err(err) = handle_event(
-                    obj["eventName"].as_str().unwrap(),
-                    obj["s3"]["object"]["key"].as_str().unwrap(),
-                    index,
-                ) {
-                    eprintln!("error handling event: {}", err);
+            match serde_json::from_str::<serde_json::Value>(body.as_str()) {
+                Err(e) => {
+                    eprintln!("error parsing message body: {}", e);
+                    continue;
+                }
+                Ok(value) => {
+                    for obj in value["Records"].as_array().unwrap_or(&vec![]) {
+                        if let Err(err) = handle_event(
+                            obj["eventName"].as_str().unwrap(),
+                            obj["s3"]["object"]["key"].as_str().unwrap(),
+                            index,
+                        ) {
+                            eprintln!("error handling event: {}", err);
+                        }
+                    }
                 }
             }
             // let event: aws_lambda_events::event::s3::S3Event =
@@ -113,4 +124,73 @@ pub fn receive_s3_events(index: &Mutex<Index>) {
             // println!("{:#?}", event);
         }
     }
+}
+
+pub fn create_event_queue(name: &String) -> String {
+    let sqs = rusoto_sqs::SqsClient::new(REGION);
+    let mut attrs = HashMap::new();
+    let policy = json!({
+              "Version": "2012-10-17",
+              "Id": "arn:aws:sqs:ap-southeast-1:670960738222:replica_search_queue-111625f666114b9bb366312b6b939bb5/SQSDefaultPolicy",
+              "Statement": [
+                {
+                  "Sid": "Sid1574049152656",
+                  "Effect": "Allow",
+                  "Principal": {
+                    "AWS": "*"
+                  },
+                  "Action": "SQS:SendMessage",
+                  "Resource": format!("arn:aws:sqs:ap-southeast-1:670960738222:{}", name),
+                  "Condition": {
+                    "ArnEquals": {
+                      "aws:SourceArn": "arn:aws:sns:ap-southeast-1:670960738222:replica-search-events"
+                    }
+                  }
+                }
+              ]
+    }).to_string();
+    attrs.insert("Policy".to_string(), policy);
+    let input = CreateQueueRequest {
+        queue_name: name.clone(),
+        attributes: Some(attrs),
+        ..Default::default()
+    };
+    let result = sqs.create_queue(input).sync().unwrap();
+    let queue_url = result.queue_url.unwrap();
+    println!("created sqs queue {}", queue_url);
+    queue_url
+}
+
+pub fn subscribe_queue(queue_name: &String) {
+    let sns = rusoto_sns::SnsClient::new(REGION);
+    let input = SubscribeInput {
+        endpoint: Some(
+            format!(
+                "arn:aws:sqs:{}:{}:{}",
+                REGION.name(),
+                ACCOUNT_ID,
+                queue_name
+            )
+            .to_string(),
+        ),
+        topic_arn: format!(
+            "arn:aws:sns:ap-southeast-1:{}:replica-search-events",
+            ACCOUNT_ID
+        )
+        .to_string(),
+        protocol: "sqs".to_string(),
+        return_subscription_arn: None,
+        attributes: None,
+    };
+    sns.subscribe(input).sync().unwrap();
+}
+
+pub fn delete_queue(queue_url: &String) {
+    let sqs = rusoto_sqs::SqsClient::new(REGION);
+    sqs.delete_queue(DeleteQueueRequest {
+        queue_url: queue_url.clone(),
+    })
+    .sync()
+    .unwrap();
+    println!("deleted queue {}", queue_url);
 }
