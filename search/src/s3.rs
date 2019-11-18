@@ -130,24 +130,24 @@ pub fn create_event_queue(name: &String) -> String {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     let mut attrs = HashMap::new();
     let policy = json!({
-              "Version": "2012-10-17",
-              "Id": "arn:aws:sqs:ap-southeast-1:670960738222:replica_search_queue-111625f666114b9bb366312b6b939bb5/SQSDefaultPolicy",
-              "Statement": [
-                {
-                  "Sid": "Sid1574049152656",
-                  "Effect": "Allow",
-                  "Principal": {
-                    "AWS": "*"
-                  },
-                  "Action": "SQS:SendMessage",
-                  "Resource": format!("arn:aws:sqs:ap-southeast-1:670960738222:{}", name),
-                  "Condition": {
-                    "ArnEquals": {
-                      "aws:SourceArn": "arn:aws:sns:ap-southeast-1:670960738222:replica-search-events"
-                    }
-                  }
-                }
-              ]
+      "Version": "2012-10-17",
+      "Id": "arn:aws:sqs:ap-southeast-1:670960738222:replica_search_queue-111625f666114b9bb366312b6b939bb5/SQSDefaultPolicy",
+      "Statement": [
+        {
+          "Sid": "Sid1574049152656",
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "*"
+          },
+          "Action": "SQS:SendMessage",
+          "Resource": format!("arn:aws:sqs:ap-southeast-1:670960738222:{}", name),
+          "Condition": {
+            "ArnEquals": {
+              "aws:SourceArn": "arn:aws:sns:ap-southeast-1:670960738222:replica-search-events"
+            }
+          }
+        }
+      ]
     }).to_string();
     attrs.insert("Policy".to_string(), policy);
     let input = CreateQueueRequest {
@@ -161,7 +161,7 @@ pub fn create_event_queue(name: &String) -> String {
     queue_url
 }
 
-pub fn subscribe_queue(queue_name: &String) {
+pub fn subscribe_queue(queue_name: &String)->String {
     let sns = rusoto_sns::SnsClient::new(REGION);
     let input = SubscribeInput {
         endpoint: Some(
@@ -182,7 +182,7 @@ pub fn subscribe_queue(queue_name: &String) {
         return_subscription_arn: None,
         attributes: None,
     };
-    sns.subscribe(input).sync().unwrap();
+    sns.subscribe(input).sync().unwrap().subscription_arn.unwrap()
 }
 
 pub fn delete_queue(queue_url: &String) {
@@ -194,3 +194,10 @@ pub fn delete_queue(queue_url: &String) {
     .unwrap();
     println!("deleted queue {}", queue_url);
 }
+
+pub fn unsubscribe(arn: String) {
+    rusoto_sns::SnsClient::new(REGION).unsubscribe(UnsubscribeInput{
+        subscription_arn: arn,
+    }).sync().unwrap();
+}
+
