@@ -1,6 +1,8 @@
+use crate::s3::tokenize_object_key;
 use failure::Error;
 use std::collections::HashMap;
 
+use std::collections::hash_map::Entry;
 use std::collections::HashSet;
 
 #[derive(Default)]
@@ -19,7 +21,21 @@ impl Index {
     }
 
     pub fn remove_key(&mut self, key: &str) -> Result<(), String> {
-        unimplemented!();
+        if !self.keys.remove(key) {
+            return Err("key not in index".to_string());
+        }
+        for t in tokenize_object_key(key)? {
+            if let Entry::Occupied(mut e) = self.terms.entry(t) {
+                let v = e.get_mut();
+                assert!(v.remove(key));
+                if v.is_empty() {
+                    e.remove();
+                }
+            } else {
+                panic!();
+            }
+        }
+        Ok(())
     }
 
     pub fn get_matches<'a, I, K: 'a>(&self, mut tokens: I) -> Vec<String>

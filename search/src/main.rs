@@ -14,6 +14,21 @@ mod server;
 
 fn main() {
     let index = Arc::new(Mutex::new(search::Index::default()));
+    let mut threads = vec![];
+    {
+        let index = Arc::clone(&index);
+        threads.push(std::thread::spawn(move || {
+            add_all_objects(&index);
+            receive_s3_events(&index);
+        }));
+    }
+    threads.push(std::thread::spawn(|| server::run_server(index)));
+    for t in threads.into_iter().rev() {
+        t.join().unwrap();
+    }
+}
+
+fn add_all_objects(index: &Mutex<search::Index>) {
     let objects = get_all_objects();
     for obj in &objects {
         let key = obj.key.as_ref().unwrap();
@@ -33,11 +48,6 @@ fn main() {
             tokenize_object_key(key)
         );
     }
-    {
-        let index = Arc::clone(&index);
-        std::thread::spawn(move || receive_s3_events(&index));
-    }
-    server::run_server(index);
 }
 
 #[test]
