@@ -63,8 +63,16 @@ pub fn tokenize_object_key(key: &str) -> std::result::Result<Vec<String>, String
 
 fn handle_event(name: &str, key: &str, index: &Mutex<Index>) -> std::result::Result<(), String> {
     match name {
-        "ObjectCreated:Put" => index.lock().unwrap().add_key(key),
-        "ObjectRemoved:Delete" => index.lock().unwrap().remove_key(key),
+        "ObjectCreated:Put" => {
+            index.lock().unwrap().add_key(key)?;
+            println!("added {} to index", key);
+            Ok(())
+        }
+        "ObjectRemoved:Delete" => {
+            index.lock().unwrap().remove_key(key)?;
+            println!("removed {} from index", key);
+            Ok(())
+        }
         _ => Err(format!("unhandled event name: {}", name)),
     }
 }
@@ -77,7 +85,6 @@ pub fn receive_s3_events(index: &Mutex<Index>, queue_url: &String) {
             wait_time_seconds: if TEST_BOUNDARIES { Some(2) } else { Some(20) },
             ..Default::default()
         };
-
         let result = match sqs.receive_message(input).sync() {
             Ok(ok) => ok,
             Err(err) => {

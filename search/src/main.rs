@@ -45,26 +45,6 @@ fn add_all_objects(index: &Mutex<search::Index>) {
         if let Err(err) = index.lock().unwrap().add_key(key) {
             eprintln!("error adding {:?} to index: {}", key, err)
         }
-        println!(
-            "{:>12} {} {:?}",
-            // Only handles the precision flag, so we have to wrap it with another format.
-            format!(
-                "{:.1}",
-                human_size::SpecificSize::new(obj.size.unwrap() as f64, Byte)
-                    .unwrap()
-                    .into::<Kilobyte>()
-            ),
-            obj.key.as_ref().unwrap(),
-            tokenize_object_key(key)
-        );
+        println!("added {} to index", key);
     }
-}
-
-#[test]
-fn test_human_byte_size_ignores_padding() {
-    // When this fails, maybe human_size handles padding.
-    assert_eq!(
-        format!("{:5}", human_size::SpecificSize::new(1, Byte).unwrap()),
-        "1 B"
-    )
 }
