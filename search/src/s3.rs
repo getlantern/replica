@@ -161,7 +161,7 @@ pub fn create_event_queue(name: &String) -> String {
     queue_url
 }
 
-pub fn subscribe_queue(queue_name: &String)->String {
+pub fn subscribe_queue(queue_name: &String) -> String {
     let sns = rusoto_sns::SnsClient::new(REGION);
     let input = SubscribeInput {
         endpoint: Some(
@@ -182,7 +182,11 @@ pub fn subscribe_queue(queue_name: &String)->String {
         return_subscription_arn: None,
         attributes: None,
     };
-    sns.subscribe(input).sync().unwrap().subscription_arn.unwrap()
+    sns.subscribe(input)
+        .sync()
+        .unwrap()
+        .subscription_arn
+        .unwrap()
 }
 
 pub fn delete_queue(queue_url: &String) {
@@ -196,8 +200,10 @@ pub fn delete_queue(queue_url: &String) {
 }
 
 pub fn unsubscribe(arn: String) {
-    rusoto_sns::SnsClient::new(REGION).unsubscribe(UnsubscribeInput{
-        subscription_arn: arn,
-    }).sync().unwrap();
+    rusoto_sns::SnsClient::new(REGION)
+        .unsubscribe(UnsubscribeInput {
+            subscription_arn: arn,
+        })
+        .sync()
+        .unwrap();
 }
-
