@@ -24,9 +24,10 @@ fn main() {
         threads.push(std::thread::spawn(move || {
             let queue_name = format!("{}-{}", QUEUE_NAME_PREFIX, Uuid::new_v4().to_simple());
             let queue_url = create_event_queue(&queue_name);
-            defer! {{delete_queue(&queue_url)}};
+            defer! {delete_queue(&queue_url)};
             let subscription_arn = subscribe_queue(&queue_name);
-            defer!({unsubscribe(subscription_arn)});
+            println!("subscription arn: {}", subscription_arn);
+            defer!(unsubscribe(subscription_arn));
             add_all_objects(&index);
             receive_s3_events(&index, &queue_url);
         }));
