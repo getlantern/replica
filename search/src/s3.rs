@@ -6,6 +6,7 @@ use rusoto_sns::*;
 use rusoto_sqs::*;
 use std::collections::HashMap;
 
+use crate::STOP_ORDERING;
 use serde_json::json;
 use std::sync::Mutex;
 use uuid::Uuid;
@@ -77,26 +78,38 @@ fn handle_event(name: &str, key: &str, index: &Mutex<Index>) -> std::result::Res
     }
 }
 
-pub fn receive_s3_events(index: &Mutex<Index>, queue_url: &String) {
+pub fn receive_s3_events(
+    index: &Mutex<Index>,
+    queue_url: &String,
+    stop: &std::sync::atomic::AtomicBool,
+) {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     loop {
         let input = rusoto_sqs::ReceiveMessageRequest {
             queue_url: queue_url.clone(),
-            wait_time_seconds: if TEST_BOUNDARIES { Some(2) } else { Some(20) },
+            // We use long-polling here, but wait for it to return before checking the stop flag. 
+            // TODO: Use the futures, and do cancellation synchronously. Note that the maximum is
+            // Some(20).
+            wait_time_seconds: Some(5),
             ..Default::default()
         };
-        let result = match sqs.receive_message(input).sync() {
+        let result = sqs.receive_message(input).sync();
+        if stop.load(STOP_ORDERING) {
+            break;
+        }
+        let result = match result {
             Ok(ok) => ok,
             Err(err) => {
                 eprintln!("error receiving messages: {}", err);
                 continue;
             }
         };
+        eprintln!("receive_message returned");
         for msg in result.messages.unwrap_or_default() {
             let body = msg.body.unwrap();
             // if let Err(err) = sqs
             //     .delete_message(rusoto_sqs::DeleteMessageRequest {
-            //         queue_url: QUEUE_URL.to_owned(),
+            //         queue_url: queue_url.to_owned(),
             //         receipt_handle: msg.receipt_handle.unwrap(),
             //     })
             //     .sync()
@@ -138,21 +151,30 @@ pub fn create_event_queue(name: &String) -> String {
     let mut attrs = HashMap::new();
     let policy = json!({
       "Version": "2012-10-17",
-      "Id": "arn:aws:sqs:ap-southeast-1:670960738222:replica_search_queue-111625f666114b9bb366312b6b939bb5/SQSDefaultPolicy",
+      "Id": format!("arn:aws:sqs:ap-southeast-1:{}:{}/SQSDefaultPolicy", ACCOUNT_ID,name),
       "Statement": [
         {
-          "Sid": "Sid1574049152656",
+          "Sid": "SNSSend",
           "Effect": "Allow",
           "Principal": {
             "AWS": "*"
           },
           "Action": "SQS:SendMessage",
-          "Resource": format!("arn:aws:sqs:ap-southeast-1:670960738222:{}", name),
+          "Resource": format!("arn:aws:sqs:ap-southeast-1:{}:{}", ACCOUNT_ID,name),
           "Condition": {
             "ArnEquals": {
               "aws:SourceArn": "arn:aws:sns:ap-southeast-1:670960738222:replica-search-events"
             }
           }
+        },
+        {
+          "Sid": "SearcherRead",
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "*"
+          },
+          "Action": "SQS:ReceiveMessage",
+          "Resource": format!("arn:aws:sqs:ap-southeast-1:{}:{}", ACCOUNT_ID,name),
         }
       ]
     }).to_string();
@@ -165,6 +187,12 @@ pub fn create_event_queue(name: &String) -> String {
     let result = sqs.create_queue(input).sync().unwrap();
     let queue_url = result.queue_url.unwrap();
     println!("created sqs queue {}", queue_url);
+    // sqs.add_permission(AddPermissionRequest{
+    //     aws_account_ids:vec![ACCOUNT_ID.to_string()],
+    //     actions: vec!["SendMessage".to_string(), "ReceiveMessage".to_string()],
+    //     label:Uuid::new_v4().to_string(),
+    //     queue_url: queue_url.clone(),
+    // }).sync().unwrap();
     queue_url
 }
 
@@ -186,8 +214,7 @@ pub fn subscribe_queue(queue_name: &String) -> String {
         )
         .to_string(),
         protocol: "sqs".to_string(),
-        return_subscription_arn: None,
-        attributes: None,
+        ..Default::default()
     };
     sns.subscribe(input)
         .sync()
@@ -209,8 +236,9 @@ pub fn delete_queue(queue_url: &String) {
 pub fn unsubscribe(arn: String) {
     rusoto_sns::SnsClient::new(REGION)
         .unsubscribe(UnsubscribeInput {
-            subscription_arn: arn,
+            subscription_arn: arn.clone(),
         })
         .sync()
         .unwrap();
+    println!("unsubscribed {}", arn);
 }
