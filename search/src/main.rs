@@ -6,6 +6,7 @@ extern crate scopeguard;
 use crate::s3::tokenize_object_key;
 use crate::s3::*;
 
+use log::*;
 use std::sync::{
     atomic::*,
     mpsc::{channel, Sender},
@@ -14,6 +15,7 @@ use std::sync::{
 use std::thread::*;
 use uuid::Uuid;
 
+mod herp;
 mod s3;
 mod search;
 mod server;
@@ -77,9 +79,10 @@ fn add_all_objects(index: &Mutex<search::Index>) {
     let objects = get_all_objects();
     for obj in &objects {
         let key = obj.key.as_ref().unwrap();
-        if let Err(err) = index.lock().unwrap().add_key(key) {
-            eprintln!("error adding {:?} to index: {}", key, err)
-        }
-        println!("added {} to index", key);
+        handle!(index.lock().unwrap().add_key(key), err, {
+            error!("error adding {:?} to index: {}", key, err);
+            continue;
+        });
+        info!("added {} to index", key);
     }
 }

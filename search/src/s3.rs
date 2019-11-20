@@ -6,6 +6,7 @@ use rusoto_sns::*;
 use rusoto_sqs::*;
 use std::collections::HashMap;
 
+use crate::handle;
 use crate::STOP_ORDERING;
 use log::*;
 use serde_json::json;
@@ -70,15 +71,6 @@ fn handle_event(event: &Event, index: &Mutex<Index>) -> std::result::Result<(), 
     })(&mut index.lock().unwrap(), event.key.as_str())
 }
 
-macro_rules! handle {
-    ($value:expr, $err:ident,$onerr:expr) => {
-        match $value {
-            Ok(ok) => ok,
-            Err($err) => $onerr,
-        }
-    };
-}
-
 pub fn receive_s3_events(
     index: &Mutex<Index>,
     queue_url: &String,
@@ -99,15 +91,14 @@ pub fn receive_s3_events(
         let result = sqs.receive_message(input).sync();
         trace!("receive_message returned");
         if stop.load(STOP_ORDERING) {
-            break;
+            trace!("got stop");
+            return;
         }
-        let result = match result {
-            Ok(ok) => ok,
-            Err(err) => {
-                eprintln!("error receiving messages: {}", err);
-                continue;
-            }
-        };
+        let result = handle!(result, err, {
+            error!("error receiving messages: {}", err);
+            continue;
+        });
+        trace!("got message result");
         for msg in result.messages.unwrap_or_default() {
             let body = msg.body.unwrap();
             let _delete = sqs
@@ -126,17 +117,23 @@ pub fn receive_s3_events(
                     error!("parsing record: {}", err);
                     continue;
                 });
-                handle_event(&event, index).unwrap();
+                handle!(handle_event(&event, index), err, {
+                    error!("error handling event {:?}: {}", event, err);
+                    continue;
+                });
+                info!("handled {:?}", event);
             }
         }
     }
 }
 
+#[derive(Debug)]
 enum EventType {
     Added,
     Removed,
 }
 
+#[derive(Debug)]
 struct Event {
     r#type: EventType,
     key: String,
@@ -157,9 +154,9 @@ fn parse_record(rec: JsonValue) -> Result<Event, String> {
 }
 
 fn get_records(body: String) -> Result<Vec<JsonValue>, String> {
-    let value = JsonValue::from_str(body.as_str()).map_err(|e| format!("parsing json: {}",e))?;
-    let mut value =
-        JsonValue::from_str(value["Message"].as_str().unwrap()).map_err(|e| format!("parsing json in message field: {}",e))?;
+    let value = JsonValue::from_str(body.as_str()).map_err(|e| format!("parsing json: {}", e))?;
+    let mut value = JsonValue::from_str(value["Message"].as_str().unwrap())
+        .map_err(|e| format!("parsing json in message field: {}", e))?;
     if let JsonValue::Array(records) = value["Records"].take() {
         Ok(records)
     } else {
@@ -200,39 +197,55 @@ fn queue_policy(queue_arn: &str) -> String {
     .to_string()
 }
 
+const CREATE_WITH_POLICY: bool = true;
+
 pub fn create_event_queue(name: &String) -> String {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
-    // let mut attrs = HashMap::new();
-    // let policy = ;
-    // attrs.insert("Policy".to_string(), policy);
-    // attrs.insert("VisibilityTimeout".to_string(), "0".to_string());
     let input = CreateQueueRequest {
         queue_name: name.clone(),
-        // attributes: Some(attrs),
+        attributes: if CREATE_WITH_POLICY {
+            Some({
+                let mut attrs = HashMap::new();
+                attrs.insert(
+                    "Policy".to_string(),
+                    queue_policy(&format!(
+                        "arn:aws:sqs:{}:{}:{}",
+                        REGION.name(),
+                        ACCOUNT_ID,
+                        name
+                    )),
+                );
+                attrs
+            })
+        } else {
+            None
+        },
         ..Default::default()
     };
     let result = sqs.create_queue(input).sync().unwrap();
     let queue_url = result.queue_url.unwrap();
-    let attrs = sqs
-        .get_queue_attributes(GetQueueAttributesRequest {
-            attribute_names: Some(vec!["All".to_string()]),
+    if !CREATE_WITH_POLICY {
+        let attrs = sqs
+            .get_queue_attributes(GetQueueAttributesRequest {
+                attribute_names: Some(vec!["All".to_string()]),
+                queue_url: queue_url.clone(),
+            })
+            .sync()
+            .unwrap()
+            .attributes
+            .unwrap();
+        debug!("queue attributes: {:#?}", attrs);
+        let queue_arn = attrs.get("QueueArn").unwrap();
+        info!("created sqs queue {}", queue_url);
+        let mut attrs = HashMap::new();
+        attrs.insert("Policy".to_string(), queue_policy(queue_arn));
+        sqs.set_queue_attributes(SetQueueAttributesRequest {
+            attributes: attrs,
             queue_url: queue_url.clone(),
         })
         .sync()
-        .unwrap()
-        .attributes
         .unwrap();
-    println!("queue attributes: {:#?}", attrs);
-    let queue_arn = attrs.get("QueueArn").unwrap();
-    println!("created sqs queue {}", queue_url);
-    let mut attrs = HashMap::new();
-    attrs.insert("Policy".to_string(), queue_policy(queue_arn));
-    sqs.set_queue_attributes(SetQueueAttributesRequest {
-        attributes: attrs,
-        queue_url: queue_url.clone(),
-    })
-    .sync()
-    .unwrap();
+    }
     queue_url
 }
 
