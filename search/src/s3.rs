@@ -7,6 +7,7 @@ use rusoto_sqs::*;
 use std::collections::HashMap;
 
 use crate::STOP_ORDERING;
+use log::*;
 use serde_json::json;
 use std::sync::Mutex;
 use uuid::Uuid;
@@ -62,20 +63,20 @@ pub fn tokenize_object_key(key: &str) -> std::result::Result<Vec<String>, String
         .collect::<Vec<String>>())
 }
 
-fn handle_event(name: &str, key: &str, index: &Mutex<Index>) -> std::result::Result<(), String> {
-    match name {
-        "ObjectCreated:Put" => {
-            index.lock().unwrap().add_key(key)?;
-            println!("added {} to index", key);
-            Ok(())
+fn handle_event(event: &Event, index: &Mutex<Index>) -> std::result::Result<(), String> {
+    (match event.r#type {
+        EventType::Added => Index::add_key,
+        EventType::Removed => Index::remove_key,
+    })(&mut index.lock().unwrap(), event.key.as_str())
+}
+
+macro_rules! handle {
+    ($value:expr, $err:ident,$onerr:expr) => {
+        match $value {
+            Ok(ok) => ok,
+            Err($err) => $onerr,
         }
-        "ObjectRemoved:Delete" => {
-            index.lock().unwrap().remove_key(key)?;
-            println!("removed {} from index", key);
-            Ok(())
-        }
-        _ => Err(format!("unhandled event name: {}", name)),
-    }
+    };
 }
 
 pub fn receive_s3_events(
@@ -87,13 +88,16 @@ pub fn receive_s3_events(
     loop {
         let input = rusoto_sqs::ReceiveMessageRequest {
             queue_url: queue_url.clone(),
-            // We use long-polling here, but wait for it to return before checking the stop flag. 
+            // We use long-polling here, but wait for it to return before checking the stop flag.
             // TODO: Use the futures, and do cancellation synchronously. Note that the maximum is
             // Some(20).
-            wait_time_seconds: Some(5),
+            // wait_time_seconds: Some(5),
+            max_number_of_messages: Some(10),
+            // visibility_timeout: Some(0),
             ..Default::default()
         };
         let result = sqs.receive_message(input).sync();
+        trace!("receive_message returned");
         if stop.load(STOP_ORDERING) {
             break;
         }
@@ -104,54 +108,69 @@ pub fn receive_s3_events(
                 continue;
             }
         };
-        eprintln!("receive_message returned");
         for msg in result.messages.unwrap_or_default() {
             let body = msg.body.unwrap();
-            // if let Err(err) = sqs
-            //     .delete_message(rusoto_sqs::DeleteMessageRequest {
-            //         queue_url: queue_url.to_owned(),
-            //         receipt_handle: msg.receipt_handle.unwrap(),
-            //     })
-            //     .sync()
-            // {
-            //     eprintln!("error deleting message: {}", err);
-            // }
-            match serde_json::from_str::<serde_json::Value>(body.as_str()) {
-                Err(e) => {
-                    eprintln!("error parsing message body: {}", e);
+            let _delete = sqs
+                .delete_message(rusoto_sqs::DeleteMessageRequest {
+                    queue_url: queue_url.to_owned(),
+                    receipt_handle: msg.receipt_handle.unwrap(),
+                })
+                .sync();
+            debug!("got message: {:#?}", body);
+            let records = handle!(get_records(body), err, {
+                warn!("error getting records: {}", err);
+                continue;
+            });
+            for r in records {
+                let event = handle!(parse_record(r), err, {
+                    error!("parsing record: {}", err);
                     continue;
-                }
-                Ok(value) => {
-                    for obj in value["Records"].as_array().unwrap_or(&vec![]) {
-                        if let Err(err) = handle_event(
-                            obj["eventName"].as_str().unwrap(),
-                            obj["s3"]["object"]["key"].as_str().unwrap(),
-                            index,
-                        ) {
-                            eprintln!("error handling event: {}", err);
-                        }
-                    }
-                }
+                });
+                handle_event(&event, index).unwrap();
             }
-            // let event: aws_lambda_events::event::s3::S3Event =
-            //     match serde_json::from_str(body.as_str()) {
-            //         Ok(ok) => ok,
-            //         Err(e) => {
-            //             eprintln!("error parsing event: {:?} in {:?}", e, body);
-            //             continue;
-            //         }
-            //     };
-            // println!("{:#?}", event);
         }
     }
 }
 
-pub fn create_event_queue(name: &String) -> String {
-    let sqs = rusoto_sqs::SqsClient::new(REGION);
-    let mut attrs = HashMap::new();
-    let policy = json!({
+enum EventType {
+    Added,
+    Removed,
+}
+
+struct Event {
+    r#type: EventType,
+    key: String,
+}
+
+use serde_json::Value as JsonValue;
+use std::str::FromStr;
+
+fn parse_record(rec: JsonValue) -> Result<Event, String> {
+    Ok(Event {
+        r#type: match rec["eventName"].as_str().unwrap() {
+            "ObjectCreated:Put" => EventType::Added,
+            "ObjectRemoved:Delete" => EventType::Removed,
+            _ => return Err("unhandled event name".to_string()),
+        },
+        key: rec["s3"]["object"]["key"].as_str().unwrap().to_string(),
+    })
+}
+
+fn get_records(body: String) -> Result<Vec<JsonValue>, String> {
+    let value = JsonValue::from_str(body.as_str()).map_err(|e| format!("parsing json: {}",e))?;
+    let mut value =
+        JsonValue::from_str(value["Message"].as_str().unwrap()).map_err(|e| format!("parsing json in message field: {}",e))?;
+    if let JsonValue::Array(records) = value["Records"].take() {
+        Ok(records)
+    } else {
+        Err("shit fukt up".to_string())
+    }
+}
+
+fn queue_policy(queue_arn: &str) -> String {
+    json!({
       "Version": "2012-10-17",
-      "Id": format!("arn:aws:sqs:ap-southeast-1:{}:{}/SQSDefaultPolicy", ACCOUNT_ID,name),
+      "Id": format!("{}/SQSDefaultPolicy", queue_arn),
       "Statement": [
         {
           "Sid": "SNSSend",
@@ -160,7 +179,7 @@ pub fn create_event_queue(name: &String) -> String {
             "AWS": "*"
           },
           "Action": "SQS:SendMessage",
-          "Resource": format!("arn:aws:sqs:ap-southeast-1:{}:{}", ACCOUNT_ID,name),
+          "Resource": queue_arn,
           "Condition": {
             "ArnEquals": {
               "aws:SourceArn": "arn:aws:sns:ap-southeast-1:670960738222:replica-search-events"
@@ -174,25 +193,46 @@ pub fn create_event_queue(name: &String) -> String {
             "AWS": "*"
           },
           "Action": "SQS:ReceiveMessage",
-          "Resource": format!("arn:aws:sqs:ap-southeast-1:{}:{}", ACCOUNT_ID,name),
+          "Resource": queue_arn,
         }
       ]
-    }).to_string();
-    attrs.insert("Policy".to_string(), policy);
+    })
+    .to_string()
+}
+
+pub fn create_event_queue(name: &String) -> String {
+    let sqs = rusoto_sqs::SqsClient::new(REGION);
+    // let mut attrs = HashMap::new();
+    // let policy = ;
+    // attrs.insert("Policy".to_string(), policy);
+    // attrs.insert("VisibilityTimeout".to_string(), "0".to_string());
     let input = CreateQueueRequest {
         queue_name: name.clone(),
-        attributes: Some(attrs),
+        // attributes: Some(attrs),
         ..Default::default()
     };
     let result = sqs.create_queue(input).sync().unwrap();
     let queue_url = result.queue_url.unwrap();
+    let attrs = sqs
+        .get_queue_attributes(GetQueueAttributesRequest {
+            attribute_names: Some(vec!["All".to_string()]),
+            queue_url: queue_url.clone(),
+        })
+        .sync()
+        .unwrap()
+        .attributes
+        .unwrap();
+    println!("queue attributes: {:#?}", attrs);
+    let queue_arn = attrs.get("QueueArn").unwrap();
     println!("created sqs queue {}", queue_url);
-    // sqs.add_permission(AddPermissionRequest{
-    //     aws_account_ids:vec![ACCOUNT_ID.to_string()],
-    //     actions: vec!["SendMessage".to_string(), "ReceiveMessage".to_string()],
-    //     label:Uuid::new_v4().to_string(),
-    //     queue_url: queue_url.clone(),
-    // }).sync().unwrap();
+    let mut attrs = HashMap::new();
+    attrs.insert("Policy".to_string(), queue_policy(queue_arn));
+    sqs.set_queue_attributes(SetQueueAttributesRequest {
+        attributes: attrs,
+        queue_url: queue_url.clone(),
+    })
+    .sync()
+    .unwrap();
     queue_url
 }
 

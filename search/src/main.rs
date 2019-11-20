@@ -23,6 +23,7 @@ const QUEUE_NAME_PREFIX: &'static str = "replica_search_queue";
 pub const STOP_ORDERING: Ordering = Ordering::Relaxed;
 
 fn main() {
+    env_logger::init();
     // Any message on here triggers termination.
     let (tx, rx) = channel();
     {
