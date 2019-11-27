@@ -83,7 +83,7 @@ pub fn receive_s3_events(
             // We use long-polling here, but wait for it to return before checking the stop flag.
             // TODO: Use the futures, and do cancellation synchronously. Note that the maximum is
             // Some(20).
-            // wait_time_seconds: Some(5),
+            wait_time_seconds: Some(1),
             max_number_of_messages: Some(10),
             // visibility_timeout: Some(0),
             ..Default::default()
@@ -98,7 +98,7 @@ pub fn receive_s3_events(
             error!("error receiving messages: {}", err);
             continue;
         });
-        trace!("got message result");
+        trace!("result messages: {:#?}", result.messages);
         for msg in result.messages.unwrap_or_default() {
             let body = msg.body.unwrap();
             let _delete = sqs
@@ -283,7 +283,7 @@ pub fn delete_queue(queue_url: &String) {
     })
     .sync()
     .unwrap();
-    println!("deleted queue {}", queue_url);
+    info!("deleted queue {}", queue_url);
 }
 
 pub fn unsubscribe(arn: String) {
@@ -293,5 +293,5 @@ pub fn unsubscribe(arn: String) {
         })
         .sync()
         .unwrap();
-    println!("unsubscribed {}", arn);
+    info!("unsubscribed {}", arn);
 }
