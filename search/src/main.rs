@@ -36,7 +36,10 @@ fn main() {
         .unwrap();
     }
     let vital_threads = VitalThreads {
-        index: &Arc::new(Mutex::new(search::Index::default())),
+        index: &Arc::new(Mutex::new(search::Index::new(
+            &tokenize_object_key,
+            str::to_lowercase,
+        ))),
         tx: &tx,
         stop: Arc::new(AtomicBool::new(false)),
     };

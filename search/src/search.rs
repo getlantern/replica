@@ -1,18 +1,32 @@
-use crate::s3::tokenize_object_key;
-use std::collections::HashMap;
-
 use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::collections::HashSet;
 
-#[derive(Default)]
+// #[derive(Default)]
 pub struct Index {
-    pub terms: HashMap<String, HashSet<String>>,
-    pub keys: HashSet<String>,
+    terms: HashMap<String, HashSet<String>>,
+    keys: HashSet<String>,
+    tokenize: Tokenizer,
+    normalize_token: fn(&str) -> String,
 }
 
+type Tokenizer = &'static (dyn Fn(&str) -> Result<Vec<String>, String> + Send + Sync);
+
+type TokenNormalizer = fn(&str) -> String;
+
 impl Index {
+    pub fn new(t: Tokenizer, tn: TokenNormalizer) -> Self {
+        Self {
+            tokenize: t,
+            normalize_token: tn,
+            keys: Default::default(),
+            terms: Default::default(),
+        }
+    }
+
     pub fn add_key(&mut self, key: &str) -> Result<(), String> {
-        for t in crate::tokenize_object_key(key).map_err(|e| e.to_string())? {
+        for t in (self.tokenize)(key)? {
+            let t = (self.normalize_token)(&t);
             self.terms.entry(t).or_default().insert(key.to_owned());
         }
         self.keys.insert(key.to_owned());
@@ -23,7 +37,8 @@ impl Index {
         if !self.keys.remove(key) {
             return Err("key not in index".to_string());
         }
-        for t in tokenize_object_key(key)? {
+        for t in (self.tokenize)(key)? {
+            let t = (self.normalize_token)(&t);
             if let Entry::Occupied(mut e) = self.terms.entry(t) {
                 let v = e.get_mut();
                 assert!(v.remove(key));
@@ -37,17 +52,21 @@ impl Index {
         Ok(())
     }
 
-    pub fn get_matches<'a, I, K: 'a>(&self, mut tokens: I) -> Vec<String>
+    pub fn get_matches<'a, I, K: 'a>(&self, tokens: I) -> Vec<String>
     where
         I: Iterator<Item = &'a K>,
-        String: std::borrow::Borrow<K>,
-        K: std::hash::Hash + std::cmp::Eq,
+        K: AsRef<str>,
     {
+        let mut tokens = tokens.map(|x| (self.normalize_token)(x.as_ref()));
         let first = match tokens.next() {
             Some(i) => i,
             None => return Default::default(),
         };
-        let mut all: HashSet<String> = self.terms.get(first).cloned().unwrap_or(Default::default());
+        let mut all: HashSet<String> = self
+            .terms
+            .get(&first)
+            .cloned()
+            .unwrap_or(Default::default());
         for t in tokens {
             all = all
                 .intersection(self.terms.get(&t).unwrap())
