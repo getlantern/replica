@@ -50,7 +50,7 @@ pub fn get_all_objects() -> Vec<Object> {
     all
 }
 
-pub fn tokenize_object_key(key: &str) -> std::result::Result<Vec<String>, String> {
+pub fn tokenize_object_key(key: &str) -> Result<Vec<String>, String> {
     if key.len() < 37 {
         return Err(format!("key too short to be valid"));
     }
@@ -61,10 +61,10 @@ pub fn tokenize_object_key(key: &str) -> std::result::Result<Vec<String>, String
         .map(str::split_whitespace)
         .flatten()
         .map(ToString::to_string)
-        .collect::<Vec<String>>())
+        .collect())
 }
 
-fn handle_event(event: &Event, index: &Mutex<Index>) -> std::result::Result<(), String> {
+fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<(), String> {
     (match event.r#type {
         EventType::Added => Index::add_key,
         EventType::Removed => Index::remove_key,
@@ -81,8 +81,8 @@ pub fn receive_s3_events(
         let input = rusoto_sqs::ReceiveMessageRequest {
             queue_url: queue_url.clone(),
             // We use long-polling here, but wait for it to return before checking the stop flag.
-            // TODO: Use the futures, and do cancellation synchronously. Note that the maximum is
-            // Some(20).
+            // Using None results in too many calls if the latency is low. TODO: Use the futures,
+            // and do cancellation synchronously. Note that the maximum is Some(20).
             wait_time_seconds: Some(1),
             max_number_of_messages: Some(10),
             // visibility_timeout: Some(0),

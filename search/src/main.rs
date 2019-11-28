@@ -29,7 +29,11 @@ fn main() {
     let (tx, rx) = channel();
     {
         let tx = tx.clone();
-        ctrlc::set_handler(move || tx.send(()).unwrap()).unwrap();
+        ctrlc::set_handler(move || {
+            trace!("handling ctrlc");
+            tx.send(()).unwrap();
+        })
+        .unwrap();
     }
     let vital_threads = VitalThreads {
         index: &Arc::new(Mutex::new(search::Index::default())),
