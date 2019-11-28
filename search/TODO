@@ -1,0 +1,1 @@
+ * Switch to an async-await runtime. Currently I'm blocked on using Tokio 0.2 with Rusoto. This may require moving away from Rocket for the HTTP server, unless they also move to supporting async (it looks like they might anyway). This will allow us to stop waiting on synchronous variables for quitting.
