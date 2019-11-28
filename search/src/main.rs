@@ -15,7 +15,6 @@ use std::sync::{
 use std::thread::*;
 use uuid::Uuid;
 
-mod herp;
 mod s3;
 mod search;
 mod server;
@@ -85,4 +84,14 @@ fn add_all_objects(index: &Mutex<search::Index>) {
         });
         info!("added {} to index", key);
     }
+}
+
+#[macro_export]
+macro_rules! handle {
+    ($value:expr, $err:ident, $onerr:expr) => {
+        match $value {
+            Ok(ok) => ok,
+            Err($err) => $onerr,
+        }
+    };
 }
