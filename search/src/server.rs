@@ -1,8 +1,8 @@
 use url::form_urlencoded::parse;
 
-pub fn get_terms_from_query_string<'a>(
-    input: &'a [u8],
-) -> impl Iterator<Item = std::borrow::Cow<'a, str>> {
+pub fn get_terms_from_query_string(
+    input: &[u8],
+) -> impl Iterator<Item = std::borrow::Cow<'_, str>> {
     parse(input).filter_map(|(k, v)| if k == "term" { Some(v) } else { None })
 }
 

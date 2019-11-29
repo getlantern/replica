@@ -23,7 +23,7 @@ use actix::run_server;
 
 type IndexState = Arc<Mutex<search::Index>>;
 
-const QUEUE_NAME_PREFIX: &'static str = "replica_search_queue";
+const QUEUE_NAME_PREFIX: &str = "replica_search_queue";
 
 pub const STOP_ORDERING: Ordering = Ordering::Relaxed;
 

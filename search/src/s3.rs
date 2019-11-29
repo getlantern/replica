@@ -52,7 +52,7 @@ pub fn get_all_objects() -> Vec<Object> {
 
 pub fn tokenize_object_key(key: &str) -> Result<Vec<String>, String> {
     if key.len() < 37 {
-        return Err(format!("key too short to be valid"));
+        return Err("key too short to be valid".to_string());
     }
     Uuid::parse_str(&key[..36]).map_err(|e| format!("parsing uuid: {}", e))?;
     let name = &key[37..];
@@ -73,13 +73,13 @@ fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<(), String> {
 
 pub fn receive_s3_events(
     index: &Mutex<Index>,
-    queue_url: &String,
+    queue_url: &str,
     stop: &std::sync::atomic::AtomicBool,
 ) {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     loop {
         let input = rusoto_sqs::ReceiveMessageRequest {
-            queue_url: queue_url.clone(),
+            queue_url: queue_url.to_string(),
             // We use long-polling here, but wait for it to return before checking the stop flag.
             // Using None results in too many calls if the latency is low. TODO: Use the futures,
             // and do cancellation synchronously. Note that the maximum is Some(20).
@@ -199,10 +199,10 @@ fn queue_policy(queue_arn: &str) -> String {
 
 const CREATE_WITH_POLICY: bool = true;
 
-pub fn create_event_queue(name: &String) -> String {
+pub fn create_event_queue(name: &str) -> String {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     let input = CreateQueueRequest {
-        queue_name: name.clone(),
+        queue_name: name.to_string(),
         attributes: if CREATE_WITH_POLICY {
             Some({
                 let mut attrs = HashMap::new();
@@ -249,7 +249,7 @@ pub fn create_event_queue(name: &String) -> String {
     queue_url
 }
 
-pub fn subscribe_queue(queue_name: &String) -> String {
+pub fn subscribe_queue(queue_name: &str) -> String {
     let sns = rusoto_sns::SnsClient::new(REGION);
     let input = SubscribeInput {
         endpoint: Some(
@@ -276,10 +276,10 @@ pub fn subscribe_queue(queue_name: &String) -> String {
         .unwrap()
 }
 
-pub fn delete_queue(queue_url: &String) {
+pub fn delete_queue(queue_url: &str) {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     sqs.delete_queue(DeleteQueueRequest {
-        queue_url: queue_url.clone(),
+        queue_url: queue_url.to_string(),
     })
     .sync()
     .unwrap();
