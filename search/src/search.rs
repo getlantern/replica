@@ -2,12 +2,11 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-// #[derive(Default)]
 pub struct Index {
     terms: HashMap<String, HashSet<String>>,
     keys: HashSet<String>,
     tokenize: Tokenizer,
-    normalize_token: fn(&str) -> String,
+    normalize_token: TokenNormalizer,
 }
 
 type Tokenizer = &'static (dyn Fn(&str) -> Result<Vec<String>, String> + Send + Sync);
