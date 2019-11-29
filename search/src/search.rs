@@ -51,9 +51,9 @@ impl Index {
         Ok(())
     }
 
-    pub fn get_matches<'a, I, K: 'a>(&self, tokens: I) -> Vec<String>
+    pub fn get_matches<I, K>(&self, tokens: I) -> Vec<String>
     where
-        I: Iterator<Item = &'a K>,
+        I: Iterator<Item = K>,
         K: AsRef<str>,
     {
         let mut tokens = tokens.map(|x| (self.normalize_token)(x.as_ref()));

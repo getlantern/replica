@@ -1,5 +1,4 @@
-#![feature(proc_macro_hygiene, decl_macro)]
-extern crate rocket;
+// #![feature(proc_macro_hygiene, decl_macro)]
 #[macro_use(defer)]
 extern crate scopeguard;
 
@@ -15,9 +14,14 @@ use std::sync::{
 use std::thread::*;
 use uuid::Uuid;
 
+mod actix;
+// mod hyper;
 mod s3;
 mod search;
 mod server;
+use actix::run_server;
+
+type IndexState = Arc<Mutex<search::Index>>;
 
 const QUEUE_NAME_PREFIX: &'static str = "replica_search_queue";
 
@@ -53,7 +57,7 @@ fn main() {
         add_all_objects(&index);
         receive_s3_events(&index, &queue_url, &stop);
     });
-    vital_threads.spawn(move |index, _| server::run_server(index));
+    vital_threads.spawn(move |index, _| run_server(index));
     rx.recv().unwrap();
     vital_threads.stop.store(true, STOP_ORDERING);
     s3_thread_join_handle.join().unwrap();
