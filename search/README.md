@@ -10,4 +10,4 @@ If the implementation is using the Rocket dependency (it probably isn't anymore)
 
 # Interface
 
-Searches can be performed by querying `localhost:8000` with one or more `term` query keys, as in `http://localhost:8000?term=jpg&term=
+Searches can be performed by querying `localhost:8000` with one or more `term` query keys, for example `http://localhost:8000?term=jpg&term=something`.
