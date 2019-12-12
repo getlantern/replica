@@ -1,5 +1,7 @@
 use crate::search::Index;
-use actix_web::{web, App, HttpRequest, HttpServer};
+use crate::server::SearchQuery;
+use actix_web::web::Query;
+use actix_web::{web, App, HttpServer};
 use std::sync::{Arc, Mutex};
 
 type IndexState = Arc<Mutex<Index>>;
@@ -8,8 +10,8 @@ use crate::server::search_response;
 
 use actix_web::HttpResponse;
 
-fn search_handler(req: HttpRequest, index: web::Data<IndexState>) -> actix_web::HttpResponse {
-    let terms = crate::server::get_terms_from_query_string(req.query_string().as_bytes());
+fn search_handler(s: Query<SearchQuery>, index: web::Data<IndexState>) -> actix_web::HttpResponse {
+    let terms = s.terms();
     let body = search_response(&index, terms);
     HttpResponse::Ok().json(body)
 }

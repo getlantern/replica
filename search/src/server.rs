@@ -1,11 +1,4 @@
-use serde::Serialize;
-use url::form_urlencoded::parse;
-
-pub fn get_terms_from_query_string(
-    input: &[u8],
-) -> impl Iterator<Item = std::borrow::Cow<'_, str>> {
-    parse(input).filter_map(|(k, v)| if k == "term" { Some(v) } else { None })
-}
+use serde::{Deserialize, Serialize};
 
 use crate::IndexState;
 
@@ -29,5 +22,16 @@ pub fn search_response<I: AsRef<str>>(
         .collect()
 }
 
-#[deprecated]
+#[deprecated(note = "search response result is now structured, use search_response instead")]
 pub use search_response as search_response_body;
+
+#[derive(Deserialize)]
+pub struct SearchQuery {
+    s: String,
+}
+
+impl SearchQuery {
+    pub fn terms(&self) -> impl Iterator<Item = &str> {
+        self.s.split_whitespace()
+    }
+}
