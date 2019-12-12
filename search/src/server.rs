@@ -1,4 +1,5 @@
 use url::form_urlencoded::parse;
+use serde::{Serialize};
 
 pub fn get_terms_from_query_string(
     input: &[u8],
@@ -8,11 +9,19 @@ pub fn get_terms_from_query_string(
 
 use crate::IndexState;
 
-pub fn search_response_body<I: AsRef<str>>(
+#[derive(Serialize)]
+pub struct SearchResultItem {
+	key: String
+}
+
+type SearchResult = Vec<SearchResultItem>;
+
+pub fn search_response<I: AsRef<str>>(
     index: &IndexState,
     terms: impl Iterator<Item = I>,
-) -> String {
-    let mut keys = index.lock().unwrap().get_matches(terms);
-    keys.push("".to_owned());
-    keys.join("\n")
+) -> SearchResult {
+    index.lock().unwrap().get_matches(terms).into_iter().map(|key| SearchResultItem{key}).collect()
 }
+
+#[deprecated]
+pub use search_response as search_response_body;

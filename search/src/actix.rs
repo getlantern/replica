@@ -4,16 +4,16 @@ use std::sync::{Arc, Mutex};
 
 type IndexState = Arc<Mutex<Index>>;
 
-use crate::server::search_response_body;
+use crate::server::search_response;
 use actix_web::http::HeaderValue;
 use actix_web::HttpResponse;
 
 fn search_handler(req: HttpRequest, index: web::Data<IndexState>) -> actix_web::HttpResponse {
     let terms = crate::server::get_terms_from_query_string(req.query_string().as_bytes());
-    let body = search_response_body(&index, terms);
+    let body = search_response(&index, terms);
     HttpResponse::Ok()
         .content_type(HeaderValue::from_static("text/uri-list"))
-        .body(body)
+        .json(body)
 }
 
 pub fn run_server(index: Arc<Mutex<Index>>) {
