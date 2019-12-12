@@ -11,8 +11,7 @@ use actix_web::HttpResponse;
 fn search_handler(req: HttpRequest, index: web::Data<IndexState>) -> actix_web::HttpResponse {
     let terms = crate::server::get_terms_from_query_string(req.query_string().as_bytes());
     let body = search_response(&index, terms);
-    HttpResponse::Ok()
-        .json(body)
+    HttpResponse::Ok().json(body)
 }
 
 pub fn run_server(index: Arc<Mutex<Index>>) {
