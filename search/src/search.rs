@@ -1,4 +1,5 @@
 use std::collections::hash_map::Entry;
+use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -7,6 +8,7 @@ pub struct Index {
     keys: HashSet<String>,
     tokenize: Tokenizer,
     normalize_token: TokenNormalizer,
+    scores_random_state: RandomState,
 }
 
 type Tokenizer = &'static (dyn Fn(&str) -> Result<Vec<String>, String> + Send + Sync);
@@ -20,6 +22,7 @@ impl Index {
             normalize_token: tn,
             keys: Default::default(),
             terms: Default::default(),
+            scores_random_state: Default::default(),
         }
     }
 
@@ -56,18 +59,16 @@ impl Index {
         I: Iterator<Item = K>,
         K: AsRef<str>,
     {
-        let mut tokens = tokens.map(|x| (self.normalize_token)(x.as_ref()));
-        let first = match tokens.next() {
-            Some(i) => i,
-            None => return Default::default(),
-        };
-        let mut all: HashSet<String> = self.terms.get(&first).cloned().unwrap_or_default();
-        for t in tokens {
-            all = all
-                .intersection(self.terms.get(&t).unwrap())
-                .cloned()
-                .collect();
+        let tokens = tokens.map(|x| (self.normalize_token)(x.as_ref()));
+        let mut scores = HashMap::with_hasher(self.scores_random_state.clone());
+        scores.extend(self.keys.iter().map(|k| (k.as_str(), 0)));
+        for token in tokens {
+            for key in self.terms.get(&token).into_iter().flatten() {
+                *scores.entry(key).or_default() += 1;
+            }
         }
-        all.into_iter().collect()
+        let mut sortable = scores.iter().collect::<Vec<_>>();
+        sortable.sort_by(|(_, vl), (_, vr)| vl.cmp(vr).reverse());
+        sortable.iter().map(|(k, _v)| k.to_string()).collect()
     }
 }
