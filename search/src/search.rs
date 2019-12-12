@@ -4,10 +4,15 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 pub struct Index {
+    // A map from normalized tokens to matching keys.
     terms: HashMap<String, HashSet<String>>,
+    // All the keys in the index.
     keys: HashSet<String>,
+    // The function used to tokenize keys.
     tokenize: Tokenizer,
+    // Applied to all tokens coming in.
     normalize_token: TokenNormalizer,
+    // This is used to maintain consistency between hashmaps built for search results.
     scores_random_state: RandomState,
 }
 
