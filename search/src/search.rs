@@ -59,7 +59,14 @@ impl Index {
         Ok(())
     }
 
-    pub fn get_matches<I, K>(&self, tokens: I) -> Vec<String>
+    // Returns keys sorted by descending number of token matches. Offset and limit what you'd expect
+    // in SQL.
+    pub fn get_matches<I, K>(
+        &self,
+        tokens: I,
+        offset: Option<usize>,
+        limit: Option<usize>,
+    ) -> Vec<(String, usize)>
     where
         I: Iterator<Item = K>,
         K: AsRef<str>,
@@ -74,6 +81,11 @@ impl Index {
         }
         let mut sortable = scores.iter().collect::<Vec<_>>();
         sortable.sort_by(|(_, vl), (_, vr)| vl.cmp(vr).reverse());
-        sortable.iter().map(|(k, _v)| (**k).to_string()).collect()
+        sortable
+            .iter()
+            .skip(offset.unwrap_or(0))
+            .take(limit.unwrap_or(usize::max_value()))
+            .map(|(k, hits)| ((**k).to_string(), **hits))
+            .collect()
     }
 }

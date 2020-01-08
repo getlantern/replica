@@ -12,7 +12,7 @@ use actix_web::HttpResponse;
 
 fn search_handler(s: Query<SearchQuery>, index: web::Data<IndexState>) -> actix_web::HttpResponse {
     let terms = s.terms();
-    let body = search_response(&index, terms);
+    let body = search_response(&index, terms, s.offset, s.limit);
     HttpResponse::Ok().json(body)
 }
 
