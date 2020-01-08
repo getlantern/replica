@@ -63,6 +63,7 @@ fn main() {
     s3_thread_join_handle.join().unwrap();
 }
 
+// Wraps tasks that take a search index and stop flag, and signal the stop flag when they fail.
 struct VitalThreads<'a> {
     index: &'a Arc<Mutex<search::Index>>,
     tx: &'a Sender<()>,
