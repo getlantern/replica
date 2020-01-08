@@ -1,4 +1,3 @@
-// #![feature(proc_macro_hygiene, decl_macro)]
 #[macro_use(defer)]
 extern crate scopeguard;
 
