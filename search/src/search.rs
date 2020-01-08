@@ -74,6 +74,6 @@ impl Index {
         }
         let mut sortable = scores.iter().collect::<Vec<_>>();
         sortable.sort_by(|(_, vl), (_, vr)| vl.cmp(vr).reverse());
-        sortable.iter().map(|(k, _v)| k.to_string()).collect()
+        sortable.iter().map(|(k, _v)| (**k).to_string()).collect()
     }
 }
