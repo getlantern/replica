@@ -72,13 +72,21 @@ impl Index {
         K: AsRef<str>,
     {
         let tokens = tokens.map(|x| (self.normalize_token)(x.as_ref()));
+        // Reuse the hasher state, to ensure stable search results (results at the same rank are
+        // always ordered the same).
         let mut scores = HashMap::with_hasher(self.scores_random_state.clone());
+        // Put all keys into the results.
         scores.extend(self.keys.iter().map(|k| (k.as_str(), 0)));
+        // Score keys for the number of matching tokens.
         for token in tokens {
             for key in self.terms.get(&token).into_iter().flatten() {
+                // The key should always be in there, so is there a faster way than
+                // Entry::or_default?
                 *scores.entry(key).or_default() += 1;
             }
         }
+        // Hopefully whatever the element type of Vec is chosen here is cheaper to generate than the
+        // final output Vec.
         let mut sortable = scores.iter().collect::<Vec<_>>();
         sortable.sort_by(|(_, vl), (_, vr)| vl.cmp(vr).reverse());
         sortable
