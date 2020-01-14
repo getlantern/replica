@@ -13,8 +13,8 @@ use std::sync::{
 use std::thread::*;
 use uuid::Uuid;
 
-mod macros;
 mod actix;
+mod macros;
 // mod hyper;
 mod s3;
 mod search;
@@ -34,7 +34,7 @@ fn main() {
     {
         let tx = tx.clone();
         ctrlc::set_handler(move || {
-            trace!("handling ctrlc");
+            debug!("handling ctrlc");
             tx.send(()).unwrap();
         })
         .unwrap();
