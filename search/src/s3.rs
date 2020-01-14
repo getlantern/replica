@@ -35,12 +35,14 @@ pub fn get_all_objects() -> Vec<Object> {
         let mut list = match s3.list_objects_v2(req).sync() {
             Ok(ok) => ok,
             Err(err) => {
-                eprintln!("error listing objects: {}", err);
+                // TODO: Why don't we get an error if we have bad credentials?
+                error!("error listing objects: {}", err);
                 continue;
             }
         };
-        let contents: &mut Vec<Object> = list.contents.as_mut().unwrap();
-        all.extend(contents.drain(..));
+        if let Some(v) = list.contents.as_mut() {
+            all.extend(v.drain(..));
+        }
         let next = list.next_continuation_token;
         match next {
             Some(_) => token = next,
