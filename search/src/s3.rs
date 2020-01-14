@@ -52,18 +52,21 @@ pub fn get_all_objects() -> Vec<Object> {
     all
 }
 
+// Note that the returned tokens do not include the UUID prefix.
 pub fn tokenize_object_key(key: &str) -> Result<Vec<String>, String> {
     if key.len() < 37 {
-        return Err("key too short to be valid".to_string());
+        return Err("key too short to contain uuid prefix".to_string());
     }
     Uuid::parse_str(&key[..36]).map_err(|e| format!("parsing uuid: {}", e))?;
     let name = &key[37..];
-    Ok(name
+    let ok = Ok(name
         .rsplitn(2, '.')
         .map(str::split_whitespace)
         .flatten()
         .map(ToString::to_string)
-        .collect())
+        .collect());
+    debug!("tokenized {} to {:?}", key, ok.as_ref().unwrap());
+    ok
 }
 
 fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<(), String> {
