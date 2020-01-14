@@ -252,20 +252,16 @@ pub fn create_event_queue(name: &str) -> String {
 pub fn subscribe_queue(queue_name: &str) -> String {
     let sns = rusoto_sns::SnsClient::new(REGION);
     let input = SubscribeInput {
-        endpoint: Some(
-            format!(
-                "arn:aws:sqs:{}:{}:{}",
-                REGION.name(),
-                ACCOUNT_ID,
-                queue_name
-            )
-            .to_string(),
-        ),
+        endpoint: Some(format!(
+            "arn:aws:sqs:{}:{}:{}",
+            REGION.name(),
+            ACCOUNT_ID,
+            queue_name
+        )),
         topic_arn: format!(
             "arn:aws:sns:ap-southeast-1:{}:replica-search-events",
             ACCOUNT_ID
-        )
-        .to_string(),
+        ),
         protocol: "sqs".to_string(),
         ..Default::default()
     };
