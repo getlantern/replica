@@ -17,6 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"golang.org/x/xerrors"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -34,6 +36,14 @@ func newSession() *session.Session {
 		Region: aws.String(region),
 		//CredentialsChainVerboseErrors: aws.Bool(true),
 	}))
+}
+
+func NewPrefix() string {
+	u, err := uuid.NewRandom()
+	if err != nil {
+		panic(err)
+	}
+	return u.String()
 }
 
 func Upload(f io.Reader, s3Key string) error {
@@ -56,7 +66,7 @@ func UploadFile(filename string) (string, error) {
 		return "", xerrors.Errorf("opening file %q: %w", filename, err)
 	}
 	defer f.Close()
-	s3Key := filepath.Base(filename)
+	s3Key := path.Join(NewPrefix(), filepath.Base(filename))
 	return s3Key, Upload(f, s3Key)
 }
 
