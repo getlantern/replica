@@ -12,7 +12,7 @@ rusoto_core = "0.42.0"
 rusoto_sqs = "0.42.0"
 rusoto_sns = "0.42.0"
 
-uuid = { version = "0.8", features = ["v4"] }
+uuid = { version = "0.8.1", features = ["v4"] }
 # bytesize = "1.0.0"
 # failure = "0.1.6"
 # aws_lambda_events = "^0.2.5"
