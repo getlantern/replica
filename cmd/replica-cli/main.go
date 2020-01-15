@@ -27,17 +27,20 @@ func checkAction(err error) {
 func mainErr() error {
 	app := cli.App("replica", "Lantern Replica functions")
 	app.Command("upload", "uploads a file to S3 and returns the S3 key", func(cmd *cli.Cmd) {
-		file := cmd.StringArg("FILE", "", "file to upload")
+		files := cmd.StringsArg("FILE", nil, "file to upload")
 		cmd.Action = func() {
 			checkAction(func() error {
-				key, err := replica.UploadFile(*file)
-				if err != nil {
-					return err
+				for _, f := range *files {
+					key, err := replica.UploadFile(f)
+					if err != nil {
+						return err
+					}
+					log.Printf("uploaded to %q", key)
 				}
-				log.Printf("uploaded to %q", key)
 				return nil
 			}())
 		}
+		cmd.Spec = "FILE..."
 	})
 	app.Command("get-torrent", "retrieve BitTorrent metainfo for a Replica S3 key", func(cmd *cli.Cmd) {
 		name := cmd.StringArg("NAME", "", "Replica S3 object name")
