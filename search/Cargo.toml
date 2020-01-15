@@ -28,3 +28,5 @@ serde = { version = "1.0", features = ["derive"] }
 actix-web = "1.0"
 # hyper = "0.12"
 url = "2.1.0"
+mime_guess = "2.0.1"
+mime = "0.3.16"
