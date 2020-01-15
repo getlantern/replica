@@ -149,10 +149,13 @@ use std::str::FromStr;
 
 fn parse_record(rec: JsonValue) -> Result<Event, String> {
     Ok(Event {
-        r#type: match rec["eventName"].as_str().unwrap() {
-            "ObjectCreated:Put" => EventType::Added,
-            "ObjectRemoved:Delete" => EventType::Removed,
-            _ => return Err("unhandled event name".to_string()),
+        r#type: {
+            let event_name = rec["eventName"].as_str().unwrap();
+            match event_name {
+                "ObjectCreated:Put" | "ObjectCreated:CompleteMultipartUpload" => EventType::Added,
+                "ObjectRemoved:Delete" => EventType::Removed,
+                _ => return Err(format!("unhandled event name {:?}", event_name)),
+            }
         },
         key: rec["s3"]["object"]["key"].as_str().unwrap().to_string(),
     })
