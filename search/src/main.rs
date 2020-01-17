@@ -4,6 +4,7 @@ extern crate scopeguard;
 use crate::s3::tokenize_object_key;
 use crate::s3::*;
 
+use anyhow::Result;
 use log::*;
 use std::sync::{
     atomic::*,
@@ -16,6 +17,7 @@ use uuid::Uuid;
 mod actix;
 mod macros;
 // mod hyper;
+mod bittorrent;
 mod s3;
 mod search;
 mod server;

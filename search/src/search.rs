@@ -95,7 +95,7 @@ impl Index {
 
     // Returns keys sorted by descending number of token matches. Offset and limit what you'd expect
     // in SQL.
-    pub fn get_matches(&self, query: Query) -> Vec<(String, usize)> {
+    pub fn get_matches(&self, query: &Query) -> Vec<(String, usize)> {
         let tokens = query
             .terms
             .iter()
@@ -104,9 +104,9 @@ impl Index {
         // always ordered the same).
         let mut scores = HashMap::with_hasher(self.scores_random_state.clone());
         // Initialize scores for keys matching the search type.
-        let keys: Box<dyn Iterator<Item = &String>> = match query.type_ {
+        let keys: Box<dyn Iterator<Item = &String>> = match &query.type_ {
             None => Box::new(self.all_keys.iter()),
-            Some(t) => Box::new(self.keys_by_type.get(&t).into_iter().flatten()),
+            Some(t) => Box::new(self.keys_by_type.get(t).into_iter().flatten()),
         };
         scores.extend(keys.map(|k| (k.as_str(), 0)));
         // Score keys for the number of matching tokens.

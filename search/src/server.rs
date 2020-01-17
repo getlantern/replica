@@ -4,22 +4,32 @@ use crate::IndexState;
 
 use crate::search::{self, OwnedMimeType};
 
+use crate::bittorrent;
+use log::*;
+
 #[derive(Serialize)]
 pub struct SearchResultItem {
-    key: String,
-    hits: usize,
+    pub key: String,
+    pub hits: usize,
 }
 
 type SearchResult = Vec<SearchResultItem>;
 
 pub fn search_response(index: &IndexState, query: impl Into<search::Query>) -> SearchResult {
-    index
+    let index_query = query.into();
+    let mut results: SearchResult = index
         .lock()
         .unwrap()
-        .get_matches(query.into())
+        .get_matches(&index_query)
         .into_iter()
         .map(|(key, hits)| SearchResultItem { key, hits })
-        .collect()
+        .collect();
+    let query_value = index_query.terms.join(" ");
+    match bittorrent::search(query_value.as_str()) {
+        Ok(more_results) => results.extend(more_results),
+        Err(err) => error!("error searching bittorrent: {}", err),
+    }
+    results
 }
 
 #[deprecated(note = "search response result is now structured, use search_response instead")]
