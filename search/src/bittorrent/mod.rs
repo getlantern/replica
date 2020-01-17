@@ -1,11 +1,11 @@
 use crate::server::SearchResultItem;
 use anyhow::Result;
-use log::*;
-use reqwest::{blocking::Client, Method, Url};
+
+use reqwest::{Client, Method, Url};
 mod magnetico;
 use magnetico::Torrent;
 
-pub fn search(query: &str) -> Result<Vec<SearchResultItem>> {
+pub async fn search(query: &str) -> Result<Vec<SearchResultItem>> {
     let client = Client::new();
     let url = Url::parse_with_params(
         "http://replica.anacrolix.link:8080/api/v0.1/torrents",
@@ -15,8 +15,8 @@ pub fn search(query: &str) -> Result<Vec<SearchResultItem>> {
     let results: Vec<Torrent> = client
         .request(Method::GET, url)
         .basic_auth("derp", Some("secret"))
-        .send()?
-        .json()?;
+        .send().await?
+        .json().await?;
     Ok(results
         .into_iter()
         .map(|t| SearchResultItem {

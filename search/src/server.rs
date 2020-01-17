@@ -25,7 +25,8 @@ pub fn search_response(index: &IndexState, query: impl Into<search::Query>) -> S
         .map(|(key, hits)| SearchResultItem { key, hits })
         .collect();
     let query_value = index_query.terms.join(" ");
-    match bittorrent::search(query_value.as_str()) {
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    match rt.block_on(bittorrent::search(query_value.as_str())) {
         Ok(more_results) => results.extend(more_results),
         Err(err) => error!("error searching bittorrent: {}", err),
     }
