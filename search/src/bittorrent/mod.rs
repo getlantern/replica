@@ -15,8 +15,10 @@ pub async fn search(query: &str) -> Result<Vec<SearchResultItem>> {
     let results: Vec<Torrent> = client
         .request(Method::GET, url)
         .basic_auth("derp", Some("secret"))
-        .send().await?
-        .json().await?;
+        .send()
+        .await?
+        .json()
+        .await?;
     Ok(results
         .into_iter()
         .map(|t| SearchResultItem {

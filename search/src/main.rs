@@ -4,7 +4,6 @@ extern crate scopeguard;
 use crate::s3::tokenize_object_key;
 use crate::s3::*;
 
-use anyhow::Result;
 use log::*;
 use std::sync::{
     atomic::*,
