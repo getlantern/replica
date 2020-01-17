@@ -48,15 +48,19 @@ fn main() {
         tx: &tx,
         stop: Arc::new(AtomicBool::new(false)),
     };
+
     let s3_thread_join_handle = vital_threads.spawn(move |index, stop| {
+        let mut rt = tokio::runtime::Runtime::new().unwrap();
         let queue_name = format!("{}-{}", QUEUE_NAME_PREFIX, Uuid::new_v4().to_simple());
-        let queue_url = create_event_queue(&queue_name);
-        defer! {delete_queue(&queue_url)};
-        let subscription_arn = subscribe_queue(&queue_name);
-        info!("subscription arn: {}", subscription_arn);
-        defer!(unsubscribe(subscription_arn));
-        add_all_objects(&index);
-        receive_s3_events(&index, &queue_url, &stop);
+        rt.block_on(async {
+            let queue_url = create_event_queue(&queue_name).await;
+            // defer! {delete_queue(&queue_url)};
+            let subscription_arn = subscribe_queue(&queue_name).await;
+            info!("subscription arn: {}", subscription_arn);
+            // defer!(unsubscribe(subscription_arn));
+            add_all_objects(&index).await;
+            receive_s3_events(&index, &queue_url, &stop).await;
+        });
     });
     vital_threads.spawn(move |index, _| run_server(index));
     rx.recv().unwrap();
@@ -87,8 +91,8 @@ impl VitalThreads<'_> {
     }
 }
 
-fn add_all_objects(index: &Mutex<search::Index>) {
-    let objects = get_all_objects();
+async fn add_all_objects(index: &Mutex<search::Index>) {
+    let objects = get_all_objects().await;
     for obj in &objects {
         let key = obj.key.as_ref().unwrap();
         handle!(index.lock().unwrap().add_key(key), err, {

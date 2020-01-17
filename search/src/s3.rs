@@ -17,7 +17,7 @@ const REGION: Region = Region::ApSoutheast1;
 const TEST_BOUNDARIES: bool = false;
 const ACCOUNT_ID: &str = "670960738222";
 
-pub fn get_all_objects() -> Vec<Object> {
+pub async fn get_all_objects() -> Vec<Object> {
     let s3 = S3Client::new(REGION);
     let mut all: Vec<Object> = vec![];
     let mut token = None;
@@ -32,7 +32,7 @@ pub fn get_all_objects() -> Vec<Object> {
             continuation_token: token.clone(),
             ..Default::default()
         };
-        let mut list = match s3.list_objects_v2(req).sync() {
+        let mut list = match s3.list_objects_v2(req).await {
             Ok(ok) => ok,
             Err(err) => {
                 // TODO: Why don't we get an error if we have bad credentials?
@@ -76,7 +76,7 @@ fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<(), String> {
     })(&mut index.lock().unwrap(), event.key.as_str())
 }
 
-pub fn receive_s3_events(
+pub async fn receive_s3_events(
     index: &Mutex<Index>,
     queue_url: &str,
     stop: &std::sync::atomic::AtomicBool,
@@ -93,7 +93,7 @@ pub fn receive_s3_events(
             // visibility_timeout: Some(0),
             ..Default::default()
         };
-        let result = sqs.receive_message(input).sync();
+        let result = sqs.receive_message(input).await;
         trace!("receive_message returned");
         if stop.load(STOP_ORDERING) {
             trace!("got stop");
@@ -111,7 +111,7 @@ pub fn receive_s3_events(
                     queue_url: queue_url.to_owned(),
                     receipt_handle: msg.receipt_handle.unwrap(),
                 })
-                .sync();
+                .await;
             debug!("got message: {:#?}", body);
             let records = handle!(get_records(body), err, {
                 warn!("error getting records: {}", err);
@@ -207,7 +207,7 @@ fn queue_policy(queue_arn: &str) -> String {
 
 const CREATE_WITH_POLICY: bool = true;
 
-pub fn create_event_queue(name: &str) -> String {
+pub async fn create_event_queue(name: &str) -> String {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     let input = CreateQueueRequest {
         queue_name: name.to_string(),
@@ -230,7 +230,7 @@ pub fn create_event_queue(name: &str) -> String {
         },
         ..Default::default()
     };
-    let result = sqs.create_queue(input).sync().unwrap();
+    let result = sqs.create_queue(input).await.unwrap();
     let queue_url = result.queue_url.unwrap();
     if !CREATE_WITH_POLICY {
         let attrs = sqs
@@ -238,7 +238,7 @@ pub fn create_event_queue(name: &str) -> String {
                 attribute_names: Some(vec!["All".to_string()]),
                 queue_url: queue_url.clone(),
             })
-            .sync()
+            .await
             .unwrap()
             .attributes
             .unwrap();
@@ -251,13 +251,13 @@ pub fn create_event_queue(name: &str) -> String {
             attributes: attrs,
             queue_url: queue_url.clone(),
         })
-        .sync()
+        .await
         .unwrap();
     }
     queue_url
 }
 
-pub fn subscribe_queue(queue_name: &str) -> String {
+pub async fn subscribe_queue(queue_name: &str) -> String {
     let sns = rusoto_sns::SnsClient::new(REGION);
     let input = SubscribeInput {
         endpoint: Some(format!(
@@ -274,28 +274,28 @@ pub fn subscribe_queue(queue_name: &str) -> String {
         ..Default::default()
     };
     sns.subscribe(input)
-        .sync()
+        .await
         .unwrap()
         .subscription_arn
         .unwrap()
 }
 
-pub fn delete_queue(queue_url: &str) {
+pub async fn delete_queue(queue_url: &str) {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     sqs.delete_queue(DeleteQueueRequest {
         queue_url: queue_url.to_string(),
     })
-    .sync()
+    .await
     .unwrap();
     info!("deleted queue {}", queue_url);
 }
 
-pub fn unsubscribe(arn: String) {
+pub async fn unsubscribe(arn: String) {
     rusoto_sns::SnsClient::new(REGION)
         .unsubscribe(UnsubscribeInput {
             subscription_arn: arn.clone(),
         })
-        .sync()
+        .await
         .unwrap();
     info!("unsubscribed {}", arn);
 }
