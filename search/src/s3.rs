@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use crate::handle;
 use crate::STOP_ORDERING;
+use futures::executor::block_on;
 use log::*;
 use serde_json::json;
 use std::sync::Mutex;
@@ -207,7 +208,15 @@ fn queue_policy(queue_arn: &str) -> String {
 
 const CREATE_WITH_POLICY: bool = true;
 
-pub async fn create_event_queue(name: &str) -> String {
+pub struct EventQueue(pub String);
+
+impl Drop for EventQueue {
+    fn drop(&mut self) {
+        block_on(delete_queue(&self.0))
+    }
+}
+
+pub async fn create_event_queue(name: &str) -> EventQueue {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     let input = CreateQueueRequest {
         queue_name: name.to_string(),
@@ -231,12 +240,13 @@ pub async fn create_event_queue(name: &str) -> String {
         ..Default::default()
     };
     let result = sqs.create_queue(input).await.unwrap();
-    let queue_url = result.queue_url.unwrap();
+    let queue = EventQueue(result.queue_url.unwrap());
+    info!("created sqs queue {}", queue.0);
     if !CREATE_WITH_POLICY {
         let attrs = sqs
             .get_queue_attributes(GetQueueAttributesRequest {
                 attribute_names: Some(vec!["All".to_string()]),
-                queue_url: queue_url.clone(),
+                queue_url: queue.0.clone(),
             })
             .await
             .unwrap()
@@ -244,20 +254,27 @@ pub async fn create_event_queue(name: &str) -> String {
             .unwrap();
         debug!("queue attributes: {:#?}", attrs);
         let queue_arn = attrs.get("QueueArn").unwrap();
-        info!("created sqs queue {}", queue_url);
         let mut attrs = HashMap::new();
         attrs.insert("Policy".to_string(), queue_policy(queue_arn));
         sqs.set_queue_attributes(SetQueueAttributesRequest {
             attributes: attrs,
-            queue_url: queue_url.clone(),
+            queue_url: queue.0.clone(),
         })
         .await
         .unwrap();
     }
-    queue_url
+    queue
 }
 
-pub async fn subscribe_queue(queue_name: &str) -> String {
+pub struct Subscription(pub String);
+
+impl Drop for Subscription {
+    fn drop(&mut self) {
+        block_on(unsubscribe(&self.0))
+    }
+}
+
+pub async fn subscribe_queue(queue_name: &str) -> Subscription {
     let sns = rusoto_sns::SnsClient::new(REGION);
     let input = SubscribeInput {
         endpoint: Some(format!(
@@ -273,11 +290,13 @@ pub async fn subscribe_queue(queue_name: &str) -> String {
         protocol: "sqs".to_string(),
         ..Default::default()
     };
-    sns.subscribe(input)
-        .await
-        .unwrap()
-        .subscription_arn
-        .unwrap()
+    Subscription(
+        sns.subscribe(input)
+            .await
+            .unwrap()
+            .subscription_arn
+            .unwrap(),
+    )
 }
 
 pub async fn delete_queue(queue_url: &str) {
@@ -290,10 +309,10 @@ pub async fn delete_queue(queue_url: &str) {
     info!("deleted queue {}", queue_url);
 }
 
-pub async fn unsubscribe(arn: String) {
+pub async fn unsubscribe(arn: &str) {
     rusoto_sns::SnsClient::new(REGION)
         .unsubscribe(UnsubscribeInput {
-            subscription_arn: arn.clone(),
+            subscription_arn: arn.to_string(),
         })
         .await
         .unwrap();

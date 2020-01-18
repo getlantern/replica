@@ -53,13 +53,11 @@ fn main() {
         let mut rt = tokio::runtime::Runtime::new().unwrap();
         let queue_name = format!("{}-{}", QUEUE_NAME_PREFIX, Uuid::new_v4().to_simple());
         rt.block_on(async {
-            let queue_url = create_event_queue(&queue_name).await;
-            // defer! {delete_queue(&queue_url)};
-            let subscription_arn = subscribe_queue(&queue_name).await;
-            info!("subscription arn: {}", subscription_arn);
-            // defer!(unsubscribe(subscription_arn));
+            let queue = create_event_queue(&queue_name).await;
+            let subscription = subscribe_queue(&queue_name).await;
+            info!("subscription arn: {}", subscription.0);
             add_all_objects(&index).await;
-            receive_s3_events(&index, &queue_url, &stop).await;
+            receive_s3_events(&index, &queue.0, &stop).await;
         });
     });
     vital_threads.spawn(move |index, _| run_server(index));
