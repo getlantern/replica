@@ -7,7 +7,7 @@ use rusoto_sqs::*;
 use std::collections::HashMap;
 
 use crate::handle;
-use crate::STOP_ORDERING;
+
 use futures::executor::block_on;
 use log::*;
 use serde_json::json;
@@ -77,11 +77,7 @@ fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<(), String> {
     })(&mut index.lock().unwrap(), event.key.as_str())
 }
 
-pub async fn receive_s3_events(
-    index: &Mutex<Index>,
-    queue_url: &str,
-    stop: &std::sync::atomic::AtomicBool,
-) {
+pub async fn receive_s3_events(index: &Mutex<Index>, queue_url: &str) {
     let sqs = rusoto_sqs::SqsClient::new(REGION);
     loop {
         let input = rusoto_sqs::ReceiveMessageRequest {
@@ -89,17 +85,13 @@ pub async fn receive_s3_events(
             // We use long-polling here, but wait for it to return before checking the stop flag.
             // Using None results in too many calls if the latency is low. TODO: Use the futures,
             // and do cancellation synchronously. Note that the maximum is Some(20).
-            wait_time_seconds: Some(1),
+            // wait_time_seconds: Some(1),
             max_number_of_messages: Some(10),
             // visibility_timeout: Some(0),
             ..Default::default()
         };
         let result = sqs.receive_message(input).await;
         trace!("receive_message returned");
-        if stop.load(STOP_ORDERING) {
-            trace!("got stop");
-            return;
-        }
         let result = handle!(result, err, {
             error!("error receiving messages: {}", err);
             continue;
