@@ -1,5 +1,5 @@
 use crate::server::SearchResultItem;
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use reqwest::{Client, Method, Url};
 mod magnetico;
@@ -12,18 +12,22 @@ pub async fn search(query: &str) -> Result<Vec<SearchResultItem>> {
         &[("query", query)],
     )
     .unwrap();
-    let results: Vec<Torrent> = client
+    let response = client
         .request(Method::GET, url)
         .basic_auth("derp", Some("secret"))
         .send()
-        .await?
-        .json()
         .await?;
-    Ok(results
-        .into_iter()
-        .map(|t| SearchResultItem {
-            hits: 1,
-            key: t.name,
-        })
-        .collect())
+    let status = response.status();
+    let result = response.json::<Vec<Torrent>>().await;
+    match result {
+        Ok(torrents) => Ok(torrents
+            .into_iter()
+            .map(|t| SearchResultItem {
+                hits: 1,
+                key: t.name,
+            })
+            .collect()),
+        Err(err) => Err(anyhow::Error::new(err)),
+    }
+    .with_context(|| format!("status: {}", status))
 }
