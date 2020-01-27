@@ -7,14 +7,13 @@ use std::sync::{Arc, Mutex};
 use tokio::signal;
 use uuid::Uuid;
 
-mod actix;
-mod macros;
-// mod hyper;
 mod bittorrent;
+mod macros;
 mod s3;
 mod search;
 mod server;
-use actix::run_server;
+mod warp;
+use crate::warp::run_server;
 
 type IndexState = Arc<Mutex<search::Index>>;
 
@@ -38,7 +37,11 @@ async fn main() {
             receive_s3_events(&index, &queue.0).await;
         });
     }
-    tokio::spawn(run_server(index));
+
+    tokio::spawn(async move {
+        run_server(index).await;
+    });
+
     signal::ctrl_c().await.unwrap();
 }
 

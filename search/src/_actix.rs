@@ -15,7 +15,7 @@ fn search_handler(s: Query<SearchQuery>, index: web::Data<IndexState>) -> actix_
     HttpResponse::Ok().json(body)
 }
 
-pub async fn run_server(index: Arc<Mutex<Index>>) {
+pub fn run_server(index: Arc<Mutex<Index>>) {
     HttpServer::new(move || {
         let index = Arc::clone(&index);
         App::new()
