@@ -8,12 +8,15 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync/atomic"
+	"time"
 
 	_ "github.com/anacrolix/envpprof"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cognitoidentity"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"golang.org/x/xerrors"
@@ -21,19 +24,70 @@ import (
 	"github.com/google/uuid"
 )
 
+var creds atomic.Value
+
 const (
 	bucket = "getlantern-replica"
 	region = "ap-southeast-1"
 )
 
+type cognitoprovider struct {
+	credentials.Expiry
+	value credentials.Value
+	//         ...
+}
+
+func (cp *cognitoprovider) Retrieve() (credentials.Value, error) {
+	return cp.value, nil
+}
+
+func newCredentials() (*cognitoprovider, error) {
+	svc := cognitoidentity.New(session.New(), aws.NewConfig().WithRegion(region))
+	idRes, err := svc.GetId(&cognitoidentity.GetIdInput{
+		IdentityPoolId: aws.String("ap-northeast-1:d13f20ba-1358-42ba-898d-6f26847f07a9"),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	credRes, err := svc.GetCredentialsForIdentity(&cognitoidentity.GetCredentialsForIdentityInput{
+		IdentityId: idRes.IdentityId,
+		//IdentityId: aws.String("ap-northeast-1:d13f20ba-1358-42ba-898d-6f26847f07a9"),
+	})
+	expiry := &cognitoprovider{
+		value: credentials.Value{
+			AccessKeyID:     *credRes.Credentials.AccessKeyId,
+			SecretAccessKey: *credRes.Credentials.SecretKey,
+			SessionToken:    *credRes.Credentials.SessionToken,
+		},
+	}
+	expiry.SetExpiration(*credRes.Credentials.Expiration, 20*time.Second)
+	return expiry, nil
+}
+
+func getCredentials() (*credentials.Credentials, error) {
+	if creds.Load() != nil {
+		if creds.Load().(*cognitoprovider).Expiry.IsExpired() {
+			if cr, err := newCredentials(); err != nil {
+				return nil, err
+			} else {
+				creds.Store(cr)
+			}
+		}
+	}
+	return credentials.NewCredentials(creds.Load().(*cognitoprovider)), nil
+}
+
 func newSession() *session.Session {
+	creds, err := getCredentials()
+	if err != nil {
+		return session.New()
+	}
+
 	return session.Must(session.NewSession(&aws.Config{
-		Credentials: credentials.NewStaticCredentials(
-			"AKIAZYODAL6XPNG54AWW",
-			"Jad1iyAZM0/fxJOmWNeuwWHe7olcOu0TjMPW0Erf",
-			"",
-		),
-		Region: aws.String(region),
+		Credentials: creds,
+		Region:      aws.String(region),
 		//CredentialsChainVerboseErrors: aws.Bool(true),
 	}))
 }
