@@ -1,7 +1,7 @@
 use crate::search::Index;
 use crate::server::SearchQuery;
 use std::convert::Infallible;
-use std::net::{SocketAddr};
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use warp::{self, Filter};
 
