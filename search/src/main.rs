@@ -26,23 +26,23 @@ async fn main() {
         &tokenize_object_key,
         str::to_lowercase,
     )));
-    {
-        let index = Arc::clone(&index);
-        tokio::spawn(async move {
-            let queue_name = format!("{}-{}", QUEUE_NAME_PREFIX, Uuid::new_v4().to_simple());
-            let queue = create_event_queue(&queue_name).await;
-            let subscription = subscribe_queue(&queue_name).await;
-            info!("subscription arn: {}", subscription.0);
-            add_all_objects(&index).await;
-            receive_s3_events(&index, &queue.0).await;
-        });
+    let s3_index = Arc::clone(&index);
+    tokio::select! {
+        _ = s3_stuff(&s3_index) => {}
+        _ =
+            run_server(index)
+         => {}
+        r = signal::ctrl_c() => {r.unwrap()}
     }
+}
 
-    tokio::spawn(async move {
-        run_server(index).await;
-    });
-
-    signal::ctrl_c().await.unwrap();
+async fn s3_stuff(index: &Mutex<search::Index>) {
+    let queue_name = format!("{}-{}", QUEUE_NAME_PREFIX, Uuid::new_v4().to_simple());
+    let queue = create_event_queue(&queue_name).await;
+    let subscription = subscribe_queue(&queue_name).await;
+    info!("subscription arn: {}", subscription.0);
+    add_all_objects(&index).await;
+    receive_s3_events(&index, &queue.0).await;
 }
 
 async fn add_all_objects(index: &Mutex<search::Index>) {
