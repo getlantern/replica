@@ -8,12 +8,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cognitoidentity"
-	"github.com/getlantern/golog"
 )
 
-var creds = &cognitoprovider{
-	log: golog.LoggerFor("replica"),
-}
+var creds = &cognitoprovider{}
 
 const (
 	bucket = "getlantern-replica"
@@ -24,7 +21,6 @@ type cognitoprovider struct {
 	credentials.Expiry
 	value credentials.Value
 	sync.Mutex
-	log golog.Logger
 }
 
 func (cp *cognitoprovider) Retrieve() (credentials.Value, error) {
