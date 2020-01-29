@@ -29,10 +29,8 @@ async fn main() {
     let s3_index = Arc::clone(&index);
     tokio::select! {
         _ = s3_stuff(&s3_index) => {}
-        _ =
-            run_server(index)
-         => {}
-        r = signal::ctrl_c() => {r.unwrap()}
+        _ = run_server(index) => {}
+        r = signal::ctrl_c() => { r.unwrap() }
     }
 }
 
