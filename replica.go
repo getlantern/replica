@@ -14,13 +14,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/getlantern/golog"
 	"golang.org/x/xerrors"
 
 	"github.com/google/uuid"
 )
-
-var log = golog.LoggerFor("replica")
 
 func newSession() (*session.Session, error) {
 	creds, err := creds.getCredentials()
@@ -47,7 +44,7 @@ func NewPrefix() string {
 func Upload(f io.Reader, s3Key string) error {
 	sess, err := newSession()
 	if err != nil {
-		log.Debugf("Could not get session: %v", err)
+		return xerrors.Errorf("Could not get session: %v", err)
 	}
 	uploader := s3manager.NewUploader(sess)
 	_, err = uploader.Upload(&s3manager.UploadInput{
@@ -116,7 +113,6 @@ func GetTorrent(key string) error {
 	if err != nil {
 		return xerrors.Errorf("opening output file: %w", err)
 	}
-	log.Debugf("created %q", f.Name())
 	defer f.Close()
 	if _, err := io.Copy(f, t); err != nil {
 		return xerrors.Errorf("copying torrent: %w", err)
