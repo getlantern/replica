@@ -206,7 +206,7 @@ pub struct EventQueue {
 
 impl Drop for EventQueue {
     fn drop(&mut self) {
-        block_on(delete_queue(&self.0))
+        block_on(delete_queue(&self.url))
     }
 }
 
