@@ -1,0 +1,2 @@
+ * Switch to an async-await runtime. Currently I'm blocked on using Tokio 0.2 with Rusoto. This may require moving away from Rocket for the HTTP server, unless they also move to supporting async (it looks like they might anyway). This will allow us to stop waiting on synchronous variables for quitting.
+ * Improve the error handling. Something like anyhow or fehler look ideal. Preferably backtrace will become stable.
