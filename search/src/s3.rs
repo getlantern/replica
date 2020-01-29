@@ -200,7 +200,9 @@ fn queue_policy(queue_arn: &str) -> String {
 
 const CREATE_WITH_POLICY: bool = true;
 
-pub struct EventQueue(pub String);
+pub struct EventQueue {
+    pub url: String,
+}
 
 impl Drop for EventQueue {
     fn drop(&mut self) {
@@ -232,13 +234,15 @@ pub async fn create_event_queue(name: &str) -> EventQueue {
         ..Default::default()
     };
     let result = sqs.create_queue(input).await.unwrap();
-    let queue = EventQueue(result.queue_url.unwrap());
-    info!("created sqs queue {}", queue.0);
+    let queue = EventQueue {
+        url: result.queue_url.unwrap(),
+    };
+    info!("created sqs queue {}", queue.url);
     if !CREATE_WITH_POLICY {
         let attrs = sqs
             .get_queue_attributes(GetQueueAttributesRequest {
                 attribute_names: Some(vec!["All".to_string()]),
-                queue_url: queue.0.clone(),
+                queue_url: queue.url.clone(),
             })
             .await
             .unwrap()
@@ -250,7 +254,7 @@ pub async fn create_event_queue(name: &str) -> EventQueue {
         attrs.insert("Policy".to_string(), queue_policy(queue_arn));
         sqs.set_queue_attributes(SetQueueAttributesRequest {
             attributes: attrs,
-            queue_url: queue.0.clone(),
+            queue_url: queue.url.clone(),
         })
         .await
         .unwrap();
@@ -258,11 +262,13 @@ pub async fn create_event_queue(name: &str) -> EventQueue {
     queue
 }
 
-pub struct Subscription(pub String);
+pub struct Subscription {
+    pub arn: String,
+}
 
 impl Drop for Subscription {
     fn drop(&mut self) {
-        block_on(unsubscribe(&self.0))
+        block_on(unsubscribe(&self.arn))
     }
 }
 
@@ -282,13 +288,14 @@ pub async fn subscribe_queue(queue_name: &str) -> Subscription {
         protocol: "sqs".to_string(),
         ..Default::default()
     };
-    Subscription(
-        sns.subscribe(input)
+    Subscription {
+        arn: sns
+            .subscribe(input)
             .await
             .unwrap()
             .subscription_arn
             .unwrap(),
-    )
+    }
 }
 
 pub async fn delete_queue(queue_url: &str) {

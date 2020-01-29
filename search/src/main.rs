@@ -40,9 +40,9 @@ async fn s3_stuff(index: &Mutex<search::Index>) {
     let queue_name = format!("{}-{}", QUEUE_NAME_PREFIX, Uuid::new_v4().to_simple());
     let queue = create_event_queue(&queue_name).await;
     let subscription = subscribe_queue(&queue_name).await;
-    info!("subscription arn: {}", subscription.0);
+    info!("subscription arn: {}", subscription.arn);
     add_all_objects(&index).await;
-    receive_s3_events(&index, &queue.0).await;
+    receive_s3_events(&index, &queue.url).await;
 }
 
 async fn add_all_objects(index: &Mutex<search::Index>) {
