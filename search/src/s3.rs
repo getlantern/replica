@@ -137,28 +137,27 @@ struct Event {
 use serde_json::Value as JsonValue;
 use std::str::FromStr;
 
-fn parse_record(rec: JsonValue) -> Result<Event, String> {
+fn parse_record(rec: JsonValue) -> Result<Event> {
     Ok(Event {
         r#type: {
             let event_name = rec["eventName"].as_str().unwrap();
             match event_name {
                 "ObjectCreated:Put" | "ObjectCreated:CompleteMultipartUpload" => EventType::Added,
                 "ObjectRemoved:Delete" => EventType::Removed,
-                _ => return Err(format!("unhandled event name {:?}", event_name)),
+                _ => bail!("unhandled event name {:?}", event_name),
             }
         },
         key: rec["s3"]["object"]["key"].as_str().unwrap().to_string(),
     })
 }
 
-fn get_records(body: String) -> Result<Vec<JsonValue>, String> {
-    let value = JsonValue::from_str(body.as_str()).map_err(|e| format!("parsing json: {}", e))?;
-    let mut value = JsonValue::from_str(value["Message"].as_str().unwrap())
-        .map_err(|e| format!("parsing json in message field: {}", e))?;
+fn get_records(body: String) -> Result<Vec<JsonValue>> {
+    let value = JsonValue::from_str(body.as_str())?;
+    let mut value = JsonValue::from_str(value["Message"].as_str().unwrap())?;
     if let JsonValue::Array(records) = value["Records"].take() {
         Ok(records)
     } else {
-        Err("shit fukt up".to_string())
+        bail!("Records array not found")
     }
 }
 
