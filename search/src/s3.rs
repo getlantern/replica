@@ -7,6 +7,8 @@ use rusoto_sqs::*;
 use std::collections::HashMap;
 
 use crate::handle;
+use crate::Result;
+use anyhow::*;
 
 use futures::executor::block_on;
 use log::*;
@@ -54,11 +56,9 @@ pub async fn get_all_objects() -> Vec<Object> {
 }
 
 // Note that the returned tokens do not include the UUID prefix.
-pub fn tokenize_object_key(key: &str) -> Result<Vec<String>, String> {
-    if key.len() < 37 {
-        return Err("key too short to contain uuid prefix".to_string());
-    }
-    Uuid::parse_str(&key[..36]).map_err(|e| format!("parsing uuid: {}", e))?;
+pub fn tokenize_object_key(key: &str) -> Result<Vec<String>> {
+    ensure!(key.len() >= 37, "key too short to contain uuid prefix");
+    Uuid::parse_str(&key[..36]).with_context(|| format!("parsing uuid: {}", key))?;
     let name = &key[37..];
     let ok = Ok(name
         .rsplitn(2, '.')
@@ -70,7 +70,7 @@ pub fn tokenize_object_key(key: &str) -> Result<Vec<String>, String> {
     ok
 }
 
-fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<(), String> {
+fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<()> {
     (match event.r#type {
         EventType::Added => Index::add_key,
         EventType::Removed => Index::remove_key,
@@ -85,7 +85,7 @@ pub async fn receive_s3_events(index: &Mutex<Index>, queue_url: &str) {
             // We use long-polling here, but wait for it to return before checking the stop flag.
             // Using None results in too many calls if the latency is low. TODO: Use the futures,
             // and do cancellation synchronously. Note that the maximum is Some(20).
-            // wait_time_seconds: Some(1),
+            wait_time_seconds: Some(20),
             max_number_of_messages: Some(10),
             // visibility_timeout: Some(0),
             ..Default::default()

@@ -7,13 +7,14 @@ use crate::search::{self, OwnedMimeType};
 use crate::bittorrent;
 use log::*;
 
-#[derive(Serialize, Default)]
+#[derive(Serialize)]
 pub struct SearchResultItem {
-    pub key: Option<String>,
-    pub hits: usize,
+    pub replica_s3_key: Option<String>,
+    pub search_term_hits: usize,
     pub info_hash: Option<String>,
     pub file_path: Option<String>,
-    pub size: Option<bittorrent::FileSize>,
+    pub file_size: Option<bittorrent::FileSize>,
+    pub torrent_name: Option<String>,
 }
 
 impl From<bittorrent::SearchResultItem> for SearchResultItem {
@@ -21,33 +22,47 @@ impl From<bittorrent::SearchResultItem> for SearchResultItem {
         Self {
             info_hash: Some(t.info_hash),
             file_path: Some(t.file_path),
-            size: Some(t.size),
-            ..Default::default()
+            file_size: Some(t.size),
+            search_term_hits: 0,
+            replica_s3_key: None,
+            torrent_name: Some(t.torrent_name),
+        }
+    }
+}
+
+impl From<search::SearchResultItem> for SearchResultItem {
+    fn from(t: search::SearchResultItem) -> Self {
+        Self {
+            replica_s3_key: Some(t.s3_key),
+            search_term_hits: t.token_hits,
+            info_hash: None,
+            file_path: None,
+            file_size: None,
+            torrent_name: None,
         }
     }
 }
 
 type SearchResult = Vec<SearchResultItem>;
 
-pub async fn search_response(index: &IndexState, query: impl Into<search::Query>) -> SearchResult {
-    let index_query = query.into();
-    let mut results: SearchResult = index
+pub async fn search_response(index: &IndexState, query: &SearchQuery) -> SearchResult {
+    let mut result: SearchResult = index
         .lock()
         .unwrap()
-        .get_matches(&index_query)
+        .get_matches(query.terms(), &query.type_)
         .into_iter()
-        .map(|(key, hits)| SearchResultItem {
-            key: Some(key),
-            hits,
-            ..Default::default()
-        })
+        .map(Into::into)
         .collect();
-    let query_value = index_query.terms.join(" ");
-    match bittorrent::Client::new().search(query_value.as_str()).await {
-        Ok(more_results) => results.extend(more_results.into_iter().map(Into::into)),
+    match bittorrent::Client::new().search(&query.s).await {
+        Ok(more_results) => result.extend(more_results.into_iter().map(Into::into)),
         Err(err) => error!("error searching bittorrent: {}", err),
     }
-    results
+    result.sort_by(|l, r| l.search_term_hits.cmp(&r.search_term_hits).reverse());
+    result
+        .into_iter()
+        .skip(query.offset.unwrap_or(0))
+        .take(query.limit.unwrap_or(20))
+        .collect()
 }
 
 #[derive(Deserialize, Debug)]

@@ -13,7 +13,7 @@ pub async fn search_handler(
     query: SearchQuery,
     index: IndexState,
 ) -> Result<impl warp::Reply, Infallible> {
-    let body = search_response(&index, query).await;
+    let body = search_response(&index, &query).await;
     Ok(warp::reply::json(&body))
 }
 

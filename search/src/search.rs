@@ -1,7 +1,9 @@
-use std::collections::hash_map::Entry;
-use std::collections::hash_map::RandomState;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use crate::Result;
+use anyhow::*;
+use std::collections::{
+    hash_map::{Entry, RandomState},
+    HashMap, HashSet,
+};
 
 pub type OwnedMimeType = String;
 
@@ -20,7 +22,7 @@ pub struct Index {
     scores_random_state: RandomState,
 }
 
-type Tokenizer = &'static (dyn Fn(&str) -> Result<Vec<String>, String> + Send + Sync);
+type Tokenizer = &'static (dyn Fn(&str) -> Result<Vec<String>> + Send + Sync);
 
 type TokenNormalizer = fn(&str) -> String;
 
@@ -50,9 +52,15 @@ impl Index {
             .map(|guess| guess.type_().to_string())
     }
 
-    pub fn add_key(&mut self, key: &str) -> Result<(), String> {
-        for t in (self.tokenize)(key)? {
-            let t = (self.normalize_token)(&t);
+    pub fn normalized_tokens(&self, s: &str) -> Result<Vec<String>> {
+        Ok((self.tokenize)(s)?
+            .iter()
+            .map(|t| (self.normalize_token)(&t))
+            .collect())
+    }
+
+    pub fn add_key(&mut self, key: &str) -> Result<()> {
+        for t in self.normalized_tokens(key)? {
             self.terms.entry(t).or_default().insert(key.to_owned());
         }
         self.all_keys.insert(key.to_owned());
@@ -65,12 +73,9 @@ impl Index {
         Ok(())
     }
 
-    pub fn remove_key(&mut self, key: &str) -> Result<(), String> {
-        if !self.all_keys.remove(key) {
-            return Err("key not in index".to_string());
-        }
-        for t in (self.tokenize)(key)? {
-            let t = (self.normalize_token)(&t);
+    pub fn remove_key(&mut self, key: &str) -> Result<()> {
+        ensure!(self.all_keys.remove(key), "key not in index");
+        for t in self.normalized_tokens(key)? {
             if let Entry::Occupied(mut e) = self.terms.entry(t) {
                 let v = e.get_mut();
                 assert!(v.remove(key));
@@ -95,16 +100,17 @@ impl Index {
 
     // Returns keys sorted by descending number of token matches. Offset and limit what you'd expect
     // in SQL.
-    pub fn get_matches(&self, query: &Query) -> Vec<(String, usize)> {
-        let tokens = query
-            .terms
-            .iter()
-            .map(|x| (self.normalize_token)(x.as_ref()));
+    pub fn get_matches(
+        &self,
+        terms: impl Iterator<Item = impl AsRef<str>>,
+        type_: &Option<OwnedMimeType>,
+    ) -> Vec<SearchResultItem> {
+        let tokens = terms.map(|x| (self.normalize_token)(x.as_ref()));
         // Reuse the hasher state, to ensure stable search results (results at the same rank are
         // always ordered the same).
         let mut scores = HashMap::with_hasher(self.scores_random_state.clone());
         // Initialize scores for keys matching the search type.
-        let keys: Box<dyn Iterator<Item = &String>> = match &query.type_ {
+        let keys: Box<dyn Iterator<Item = &String>> = match type_ {
             None => Box::new(self.all_keys.iter()),
             Some(t) => Box::new(self.keys_by_type.get(t).into_iter().flatten()),
         };
@@ -115,15 +121,17 @@ impl Index {
                 scores.entry(key).and_modify(|score| *score += 1);
             }
         }
-        // Hopefully whatever the element type of Vec is chosen here is cheaper to generate than the
-        // final output Vec.
-        let mut sortable = scores.iter().collect::<Vec<_>>();
-        sortable.sort_by(|(_, vl), (_, vr)| vl.cmp(vr).reverse());
-        sortable
+        scores
             .iter()
-            .skip(query.offset.unwrap_or(0))
-            .take(query.limit.unwrap_or(usize::max_value()))
-            .map(|(k, hits)| ((**k).to_string(), **hits))
+            .map(|(s3_key, token_hits)| SearchResultItem {
+                s3_key: (*s3_key).to_string(),
+                token_hits: *token_hits,
+            })
             .collect()
     }
+}
+
+pub struct SearchResultItem {
+    pub s3_key: String,
+    pub token_hits: usize,
 }

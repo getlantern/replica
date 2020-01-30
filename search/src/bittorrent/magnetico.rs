@@ -42,7 +42,8 @@ impl Client {
         }
     }
 
-    async fn get<T, Q, K, V, P>(&self, path_segments: P, query_pairs: Q) -> Result<T, anyhow::Error>
+    // Holy crap look at this signature!
+    async fn get<T, Q, K, V, P>(&self, path_segments: P, query_pairs: Q) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
         Q: IntoIterator,
@@ -71,6 +72,7 @@ impl Client {
     pub async fn list_files(&self, info_hash: &str) -> Result<Files> {
         self.get(
             &["torrents", info_hash, "filelist"],
+            // Is there a nicer way to do this?
             std::iter::empty::<(&str, &str)>(),
         )
         .await
@@ -79,9 +81,12 @@ impl Client {
     pub async fn search(&self, query: &str) -> Result<Vec<SearchResultItem>> {
         let torrents: Vec<Torrent> = self.get(&["torrents"], &[("query", query)]).await?;
         let mut ok = Vec::new();
+        debug!("listing files for {} torrents", torrents.len());
         for (t, fs) in futures_util::future::join_all(torrents.into_iter().map(|t| {
             async move {
+                trace!("listing files for {}", &t.info_hash);
                 let files = self.list_files(&t.info_hash).await;
+                trace!("listing files for {} returned", &t.info_hash);
                 (t, files)
             }
         }))
@@ -89,11 +94,15 @@ impl Client {
         {
             match fs {
                 Err(e) => error!("error getting files for {}: {}", t.info_hash, e),
-                Ok(files) => ok.extend(files.into_iter().map(|f| SearchResultItem {
-                    info_hash: t.info_hash.clone(),
-                    file_path: f.path,
-                    size: f.size,
-                })),
+                Ok(files) => {
+                    trace!("torrent {} has {} files", t.info_hash, files.len());
+                    ok.extend(files.into_iter().map(|f| SearchResultItem {
+                        torrent_name: t.name.clone(),
+                        info_hash: t.info_hash.clone(),
+                        file_path: f.path,
+                        size: f.size,
+                    }))
+                }
             }
         }
         Ok(ok)

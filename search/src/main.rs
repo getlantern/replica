@@ -7,6 +7,8 @@ use std::sync::{Arc, Mutex};
 use tokio::signal;
 use uuid::Uuid;
 
+pub use anyhow::Result;
+
 mod bittorrent;
 mod macros;
 mod s3;
