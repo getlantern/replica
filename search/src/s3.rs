@@ -60,10 +60,7 @@ pub fn tokenize_object_key(key: &str) -> Result<Vec<String>> {
     ensure!(key.len() >= 37, "key too short to contain uuid prefix");
     Uuid::parse_str(&key[..36]).with_context(|| format!("parsing uuid: {}", key))?;
     let name = &key[37..];
-    let ok = Ok(name
-        .rsplitn(2, '.')
-        .map(str::split_whitespace)
-        .flatten()
+    let ok = Ok(crate::search::split_name(name)
         .map(ToString::to_string)
         .collect());
     debug!("tokenized {} to {:?}", key, ok.as_ref().unwrap());

@@ -135,3 +135,7 @@ pub struct SearchResultItem {
     pub s3_key: String,
     pub token_hits: usize,
 }
+
+pub fn split_name(s: &str) -> impl Iterator<Item = &str> {
+    s.split(|c: char| c.is_whitespace() || c.is_ascii_punctuation())
+}

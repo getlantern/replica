@@ -18,9 +18,7 @@ impl SearchResultItem {
     {
         let tokens: Vec<&str> = [&self.torrent_name, &self.file_path]
             .iter()
-            .map(|s| s.rsplitn(2, '.'))
-            .flatten()
-            .map(str::split_whitespace)
+            .map(|x| crate::search::split_name(x))
             .flatten()
             .collect();
         let mut ok = 0;
