@@ -17,13 +17,13 @@ pub struct SearchResultItem {
     pub torrent_name: Option<String>,
 }
 
-impl From<bittorrent::SearchResultItem> for SearchResultItem {
-    fn from(t: bittorrent::SearchResultItem) -> Self {
+impl SearchResultItem {
+    fn from<'a>(t: bittorrent::SearchResultItem, terms: impl Iterator<Item = &'a str>) -> Self {
         Self {
+            search_term_hits: t.score(terms),
             info_hash: Some(t.info_hash),
             file_path: Some(t.file_path),
             file_size: Some(t.size),
-            search_term_hits: 0,
             replica_s3_key: None,
             torrent_name: Some(t.torrent_name),
         }
@@ -54,7 +54,11 @@ pub async fn search_response(index: &IndexState, query: &SearchQuery) -> SearchR
         .map(Into::into)
         .collect();
     match bittorrent::Client::new().search(&query.s).await {
-        Ok(more_results) => result.extend(more_results.into_iter().map(Into::into)),
+        Ok(more_results) => result.extend(
+            more_results
+                .into_iter()
+                .map(|x| SearchResultItem::from(x, query.terms())),
+        ),
         Err(err) => error!("error searching bittorrent: {}", err),
     }
     result.sort_by(|l, r| l.search_term_hits.cmp(&r.search_term_hits).reverse());
