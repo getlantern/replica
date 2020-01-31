@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -12,7 +11,6 @@ import (
 	_ "github.com/anacrolix/envpprof"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -21,23 +19,19 @@ import (
 	"github.com/google/uuid"
 )
 
-const (
-	bucket = "getlantern-replica"
-	region = "ap-southeast-1"
-)
+func newSession() (*session.Session, error) {
+	creds, err := creds.getCredentials()
+	if err != nil {
+		return nil, xerrors.Errorf("could not get creds: %v", err)
+	}
 
-func newSession() *session.Session {
 	return session.Must(session.NewSession(&aws.Config{
-		Credentials: credentials.NewStaticCredentials(
-			"AKIAZYODAL6XPNG54AWW",
-			"Jad1iyAZM0/fxJOmWNeuwWHe7olcOu0TjMPW0Erf",
-			"",
-		),
-		Region: aws.String(region),
-		//CredentialsChainVerboseErrors: aws.Bool(true),
-	}))
+		Credentials: creds,
+		Region:      aws.String(region),
+	})), nil
 }
 
+// NewPrefix creates a new random S3 key prefix to anonymize uploads.
 func NewPrefix() string {
 	u, err := uuid.NewRandom()
 	if err != nil {
@@ -46,10 +40,14 @@ func NewPrefix() string {
 	return u.String()
 }
 
+// Upload uploads the specified reader data to the specified S3 key.
 func Upload(f io.Reader, s3Key string) error {
-	sess := newSession()
+	sess, err := newSession()
+	if err != nil {
+		return xerrors.Errorf("Could not get session: %v", err)
+	}
 	uploader := s3manager.NewUploader(sess)
-	_, err := uploader.Upload(&s3manager.UploadInput{
+	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(s3Key),
 		Body:   f,
@@ -60,6 +58,8 @@ func Upload(f io.Reader, s3Key string) error {
 	return nil
 }
 
+// UploadFile uploads a file with the given name, creating a new key with
+// a generated prefix.
 func UploadFile(filename string) (string, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -70,19 +70,27 @@ func UploadFile(filename string) (string, error) {
 	return s3Key, Upload(f, s3Key)
 }
 
+// DeleteFile deletes the S3 file with the given key.
 func DeleteFile(s3key string) error {
-	svc := s3.New(newSession())
+	sess, err := newSession()
+	if err != nil {
+		return xerrors.Errorf("Could not get session: %v", err)
+	}
+	svc := s3.New(sess)
 	input := &s3.DeleteObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(s3key),
 	}
-	_, err := svc.DeleteObject(input)
+	_, err = svc.DeleteObject(input)
 	return err
 }
 
-// Returns the object metainfo for the given key.
+// GetObjectTorrent returns the object metainfo for the given key.
 func GetObjectTorrent(key string) (io.ReadCloser, error) {
-	sess := newSession()
+	sess, err := newSession()
+	if err != nil {
+		return nil, xerrors.Errorf("Could not get session: %v", err)
+	}
 	svc := s3.New(sess)
 	out, err := svc.GetObjectTorrent(&s3.GetObjectTorrentInput{
 		Bucket: aws.String(bucket),
@@ -94,7 +102,7 @@ func GetObjectTorrent(key string) (io.ReadCloser, error) {
 	return out.Body, nil
 }
 
-// Downloads the metainfo for the Replica object to a .torrent file in the current working directory.
+// GetTorrent downloads the metainfo for the Replica object to a .torrent file in the current working directory.
 func GetTorrent(key string) error {
 	t, err := GetObjectTorrent(key)
 	if err != nil {
@@ -105,7 +113,6 @@ func GetTorrent(key string) error {
 	if err != nil {
 		return xerrors.Errorf("opening output file: %w", err)
 	}
-	log.Printf("created %q", f.Name())
 	defer f.Close()
 	if _, err := io.Copy(f, t); err != nil {
 		return xerrors.Errorf("copying torrent: %w", err)
@@ -116,7 +123,7 @@ func GetTorrent(key string) error {
 	return nil
 }
 
-// Walks the torrent files stored in the directory.
+// IterUploads walks the torrent files stored in the directory.
 func IterUploads(dir string, f func(mi *metainfo.MetaInfo, err error)) error {
 	entries, err := ioutil.ReadDir(dir)
 	if os.IsNotExist(err) {
