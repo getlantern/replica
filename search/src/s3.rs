@@ -68,10 +68,16 @@ pub fn tokenize_object_key(key: &str) -> Result<Vec<String>> {
 }
 
 fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<()> {
-    (match event.r#type {
-        EventType::Added => Index::add_key,
-        EventType::Removed => Index::remove_key,
-    })(&mut index.lock().unwrap(), event.key.as_str())
+    let mut index = index.lock().unwrap();
+    match event.r#type {
+        EventType::Added => index.add_key(
+            &event.key,
+            crate::search::KeyInfo {
+                size: event.size.unwrap(),
+            },
+        ),
+        EventType::Removed => index.remove_key(&event.key),
+    }
 }
 
 pub async fn receive_s3_events(index: &Mutex<Index>, queue_url: &str) {
@@ -132,12 +138,14 @@ enum EventType {
 struct Event {
     r#type: EventType,
     key: String,
+    size: Option<crate::bittorrent::FileSize>,
 }
 
 use serde_json::Value as JsonValue;
 use std::str::FromStr;
 
 fn parse_record(rec: JsonValue) -> Result<Event> {
+    let object = &rec["s3"]["object"];
     Ok(Event {
         r#type: {
             let event_name = rec["eventName"].as_str().unwrap();
@@ -147,7 +155,8 @@ fn parse_record(rec: JsonValue) -> Result<Event> {
                 _ => bail!("unhandled event name {:?}", event_name),
             }
         },
-        key: rec["s3"]["object"]["key"].as_str().unwrap().to_string(),
+        key: object["key"].as_str().unwrap().to_string(),
+        size: rec["size"].as_i64(),
     })
 }
 

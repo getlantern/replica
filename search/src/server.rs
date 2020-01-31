@@ -13,7 +13,7 @@ pub struct SearchResultItem {
     pub search_term_hits: usize,
     pub info_hash: Option<String>,
     pub file_path: Option<String>,
-    pub file_size: Option<bittorrent::FileSize>,
+    pub file_size: bittorrent::FileSize,
     pub torrent_name: Option<String>,
 }
 
@@ -23,7 +23,7 @@ impl SearchResultItem {
             search_term_hits: t.score(terms),
             info_hash: Some(t.info_hash),
             file_path: Some(t.file_path),
-            file_size: Some(t.size),
+            file_size: t.size,
             replica_s3_key: None,
             torrent_name: Some(t.torrent_name),
         }
@@ -37,7 +37,7 @@ impl From<search::SearchResultItem> for SearchResultItem {
             search_term_hits: t.token_hits,
             info_hash: None,
             file_path: None,
-            file_size: None,
+            file_size: t.size,
             torrent_name: None,
         }
     }

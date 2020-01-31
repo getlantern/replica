@@ -48,11 +48,21 @@ async fn s3_stuff(index: &Mutex<search::Index>) {
 async fn add_all_objects(index: &Mutex<search::Index>) {
     let objects = get_all_objects().await;
     for obj in &objects {
+        trace!("adding s3 object {:?}", obj);
         let key = obj.key.as_ref().unwrap();
-        handle!(index.lock().unwrap().add_key(key), err, {
-            error!("error adding {:?} to index: {}", key, err);
-            continue;
-        });
+        handle!(
+            index.lock().unwrap().add_key(
+                key,
+                search::KeyInfo {
+                    size: obj.size.unwrap()
+                }
+            ),
+            err,
+            {
+                error!("error adding {:?} to index: {}", key, err);
+                continue;
+            }
+        );
         info!("added {} to index", key);
     }
 }
