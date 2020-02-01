@@ -45,28 +45,36 @@ impl From<search::SearchResultItem> for SearchResultItem {
 
 type SearchResult = Vec<SearchResultItem>;
 
-pub async fn search_response(index: &IndexState, query: &SearchQuery) -> SearchResult {
-    let mut result: SearchResult = index
-        .lock()
-        .unwrap()
-        .get_matches(query.terms(), &query.type_)
-        .into_iter()
-        .map(Into::into)
-        .collect();
-    match bittorrent::Client::new().search(&query.s).await {
-        Ok(more_results) => result.extend(
-            more_results
-                .into_iter()
-                .map(|x| SearchResultItem::from(x, query.terms())),
-        ),
-        Err(err) => error!("error searching bittorrent: {}", err),
+pub struct Server {
+    pub bittorrent_search_client: bittorrent::Client,
+    pub replica_s3_index: IndexState,
+}
+
+impl Server {
+    pub async fn search_response(&self, query: &SearchQuery) -> SearchResult {
+        let mut result: SearchResult = self
+            .replica_s3_index
+            .lock()
+            .unwrap()
+            .get_matches(query.terms(), &query.type_)
+            .into_iter()
+            .map(Into::into)
+            .collect();
+        match self.bittorrent_search_client.search(&query.s).await {
+            Ok(more_results) => result.extend(
+                more_results
+                    .into_iter()
+                    .map(|x| SearchResultItem::from(x, query.terms())),
+            ),
+            Err(err) => error!("error searching bittorrent: {}", err),
+        }
+        result.sort_by(|l, r| l.search_term_hits.cmp(&r.search_term_hits).reverse());
+        result
+            .into_iter()
+            .skip(query.offset.unwrap_or(0))
+            .take(query.limit.unwrap_or(20))
+            .collect()
     }
-    result.sort_by(|l, r| l.search_term_hits.cmp(&r.search_term_hits).reverse());
-    result
-        .into_iter()
-        .skip(query.offset.unwrap_or(0))
-        .take(query.limit.unwrap_or(20))
-        .collect()
 }
 
 #[derive(Deserialize, Debug)]

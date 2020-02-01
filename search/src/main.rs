@@ -15,6 +15,7 @@ mod s3;
 mod search;
 mod server;
 mod warp;
+// mod singleflight;
 use crate::warp::run_server;
 
 type IndexState = Arc<Mutex<search::Index>>;
@@ -29,9 +30,13 @@ async fn main() {
         str::to_lowercase,
     )));
     let s3_index = Arc::clone(&index);
+    let server = server::Server {
+        replica_s3_index: index,
+        bittorrent_search_client: bittorrent::Client::new(),
+    };
     tokio::select! {
         _ = s3_stuff(&s3_index) => {}
-        _ = run_server(index) => {}
+        _ = run_server(Arc::new(server)) => {}
         r = signal::ctrl_c() => { r.unwrap() }
     }
 }

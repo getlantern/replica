@@ -19,7 +19,7 @@ pub struct Torrent {
     pub relevance: f64,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct File {
     pub size: i64,
     pub path: String,
@@ -30,6 +30,7 @@ pub type Files = Vec<File>;
 pub struct Client {
     root_url: Url,
     http: reqwest::Client,
+    // list_files_singleflight: crate::singleflight::Group<String, Files>,
 }
 
 use std::borrow::Borrow;
@@ -82,13 +83,11 @@ impl Client {
         let torrents: Vec<Torrent> = self.get(&["torrents"], &[("query", query)]).await?;
         let mut ok = Vec::new();
         debug!("listing files for {} torrents", torrents.len());
-        for (t, fs) in futures_util::future::join_all(torrents.into_iter().map(|t| {
-            async move {
-                trace!("listing files for {}", &t.info_hash);
-                let files = self.list_files(&t.info_hash).await;
-                trace!("listing files for {} returned", &t.info_hash);
-                (t, files)
-            }
+        for (t, fs) in futures_util::future::join_all(torrents.into_iter().map(|t| async move {
+            trace!("listing files for {}", &t.info_hash);
+            let files = self.list_files(&t.info_hash).await;
+            trace!("listing files for {} returned", &t.info_hash);
+            (t, files)
         }))
         .await
         {
