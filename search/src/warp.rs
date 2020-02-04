@@ -1,8 +1,8 @@
-use crate::server::{SearchQuery,Server};
+use crate::server::{SearchQuery, Server};
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use std::sync::{Arc};
-use warp::{Filter};
+use std::sync::Arc;
+use warp::Filter;
 
 pub async fn search_handler(
     query: SearchQuery,

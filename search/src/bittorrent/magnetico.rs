@@ -4,6 +4,9 @@ use anyhow::Result;
 use log::*;
 use reqwest::Url;
 use serde::Deserialize;
+use std::borrow::Borrow;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Deserialize)]
 pub struct Torrent {
@@ -27,19 +30,22 @@ pub struct File {
 
 pub type Files = Vec<File>;
 
+type ListFilesCache = HashMap<String, Files>;
+
 pub struct Client {
     root_url: Url,
     http: reqwest::Client,
-    // list_files_singleflight: crate::singleflight::Group<String, Files>,
+    list_files_singleflight: crate::singleflight::Group<String, Result<Files, Arc<anyhow::Error>>>,
+    list_files_cache: tokio::sync::RwLock<ListFilesCache>,
 }
-
-use std::borrow::Borrow;
 
 impl Client {
     pub fn new() -> Self {
         Self {
             root_url: Url::parse("http://replica.anacrolix.link:8080/api/v0.1/").unwrap(),
             http: reqwest::Client::new(),
+            list_files_singleflight: crate::singleflight::Group::new(),
+            list_files_cache: Default::default(),
         }
     }
 
@@ -70,13 +76,35 @@ impl Client {
             .with_context(|| format!("status: {}", status))
     }
 
-    pub async fn list_files(&self, info_hash: &str) -> Result<Files> {
-        self.get(
-            &["torrents", info_hash, "filelist"],
-            // Is there a nicer way to do this?
-            std::iter::empty::<(&str, &str)>(),
-        )
-        .await
+    pub async fn list_files(&self, info_hash: &str) -> Result<Files, Arc<anyhow::Error>> {
+        {
+            let cache = self.list_files_cache.read().await;
+            if let Some(v) = cache.get(info_hash) {
+                trace!("files for {} served from cache", info_hash);
+                return Ok(v.clone());
+            }
+        }
+        self.list_files_singleflight
+            .work(&info_hash.to_string(), async {
+                let res: Result<Files> = self
+                    .get(
+                        &["torrents", info_hash, "filelist"],
+                        // Is there a nicer way to do this?
+                        std::iter::empty::<(&str, &str)>(),
+                    )
+                    .await;
+                match res {
+                    Ok(files) => {
+                        self.list_files_cache
+                            .write()
+                            .await
+                            .insert(info_hash.to_string(), files.clone());
+                        Ok(files)
+                    }
+                    Err(err) => Err(Arc::new(err)),
+                }
+            })
+            .await
     }
 
     pub async fn search(&self, query: &str) -> Result<Vec<SearchResultItem>> {

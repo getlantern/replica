@@ -14,8 +14,8 @@ mod macros;
 mod s3;
 mod search;
 mod server;
+mod singleflight;
 mod warp;
-// mod singleflight;
 use crate::warp::run_server;
 
 type IndexState = Arc<Mutex<search::Index>>;
