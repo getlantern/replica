@@ -39,10 +39,26 @@ pub struct Client {
     list_files_cache: tokio::sync::RwLock<ListFilesCache>,
 }
 
+cfg_if::cfg_if! {
+    if #[cfg(feature="magnetico_localhost")] {
+        const MAGNETICOW_LOCATION: &str = "http://localhost:8081";
+        const MAGNETICO_USER: &str = "magnetico";
+        const MAGNETICO_PASSWORD: Option<&str> = Some("magnetico");
+    } else {
+        const MAGNETICOW_LOCATION: &str = "http://replica.anacrolix.link:8080";
+        const MAGNETICO_USER: &str = "derp";
+        const MAGNETICO_PASSWORD: Option<&str> = Some("secret");
+    }
+}
+
 impl Client {
     pub fn new() -> Self {
         Self {
-            root_url: Url::parse("http://replica.anacrolix.link:8080/api/v0.1/").unwrap(),
+            root_url: {
+                let mut url = Url::parse(MAGNETICOW_LOCATION).unwrap();
+                url.path_segments_mut().unwrap().extend(&["api", "v0.1"]);
+                url
+            },
             http: reqwest::Client::new(),
             list_files_singleflight: crate::singleflight::Group::new(),
             list_files_cache: Default::default(),
@@ -66,7 +82,7 @@ impl Client {
         let response = self
             .http
             .get(url)
-            .basic_auth("derp", Some("secret"))
+            .basic_auth(MAGNETICO_USER, MAGNETICO_PASSWORD)
             .send()
             .await?;
         let status = response.status();

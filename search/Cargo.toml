@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Matt Joiner <anacrolix@gmail.com>"]
 edition = "2018"
 
+[features]
+magnetico_localhost = []
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -29,3 +32,4 @@ anyhow = "1.0.26"
 futures = "0.3.1"
 futures-util = "0.3.1"
 singleflight = "0.1.0"
+cfg-if = "0.1.10"
