@@ -5,6 +5,7 @@ use crate::IndexState;
 use crate::search::{self, OwnedMimeType};
 
 use crate::bittorrent;
+use crate::types::*;
 use log::*;
 
 #[derive(Serialize)]
@@ -13,32 +14,44 @@ pub struct SearchResultItem {
     pub search_term_hits: usize,
     pub info_hash: Option<String>,
     pub file_path: Option<String>,
-    pub file_size: bittorrent::FileSize,
+    pub file_size: FileSize,
     pub torrent_name: Option<String>,
+    pub mime_type: Option<String>,
+    pub last_modified: crate::types::DateTime,
 }
 
 impl SearchResultItem {
-    fn from<'a>(t: bittorrent::SearchResultItem, terms: impl Iterator<Item = &'a str>) -> Self {
+    fn from_bittorrent<'a>(
+        t: bittorrent::SearchResultItem,
+        terms: impl Iterator<Item = &'a str>,
+    ) -> Self {
         Self {
+            mime_type: mime_guess::from_path(&t.file_path)
+                .first()
+                .map(|x| x.to_string()),
             search_term_hits: t.score(terms),
             info_hash: Some(t.info_hash),
             file_path: Some(t.file_path),
             file_size: t.size,
             replica_s3_key: None,
             torrent_name: Some(t.torrent_name),
+            last_modified: t.age,
         }
     }
-}
-
-impl From<search::SearchResultItem> for SearchResultItem {
-    fn from(t: search::SearchResultItem) -> Self {
+    fn from_search_index(t: search::SearchResultItem, search_type: Option<OwnedMimeType>) -> Self {
         Self {
+            mime_type: search_type.or_else(|| {
+                mime_guess::from_path(&t.s3_key)
+                    .first()
+                    .map(|x| x.to_string())
+            }),
             replica_s3_key: Some(t.s3_key),
             search_term_hits: t.token_hits,
             info_hash: None,
             file_path: None,
             file_size: t.size,
             torrent_name: None,
+            last_modified: t.last_modified,
         }
     }
 }
@@ -58,13 +71,13 @@ impl Server {
             .unwrap()
             .get_matches(query.terms(), &query.type_)
             .into_iter()
-            .map(Into::into)
+            .map(|x| SearchResultItem::from_search_index(x, query.type_.clone()))
             .collect();
         match self.bittorrent_search_client.search(&query.s).await {
             Ok(more_results) => result.extend(
                 more_results
                     .into_iter()
-                    .map(|x| SearchResultItem::from(x, query.terms())),
+                    .map(|x| SearchResultItem::from_bittorrent(x, query.terms())),
             ),
             Err(err) => error!("error searching bittorrent: {}", err),
         }

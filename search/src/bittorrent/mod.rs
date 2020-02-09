@@ -1,15 +1,15 @@
 mod magnetico;
-
 pub use magnetico::*;
+
+use crate::types::*;
 
 pub struct SearchResultItem {
     pub torrent_name: String,
     pub info_hash: String,
     pub file_path: String,
     pub size: FileSize,
+    pub age: DateTime,
 }
-
-pub type FileSize = i64;
 
 impl SearchResultItem {
     pub fn score<'a, I>(&self, terms: I) -> usize

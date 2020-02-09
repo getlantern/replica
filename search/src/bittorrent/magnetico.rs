@@ -8,6 +8,9 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[derive(Deserialize, Copy, Clone)]
+pub struct Epoch(pub i64);
+
 #[derive(Deserialize)]
 pub struct Torrent {
     #[serde(rename = "infoHash")]
@@ -16,7 +19,7 @@ pub struct Torrent {
     pub name: String,
     pub size: u64,
     #[serde(rename = "discoveredOn")]
-    pub discovered_on: u64,
+    pub discovered_on: Epoch,
     #[serde(rename = "nFiles")]
     pub n_files: u64,
     pub relevance: f64,
@@ -144,6 +147,7 @@ impl Client {
                         info_hash: t.info_hash.clone(),
                         file_path: f.path,
                         size: f.size,
+                        age: t.discovered_on.into(),
                     }))
                 }
             }

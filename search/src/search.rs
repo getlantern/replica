@@ -1,4 +1,3 @@
-use crate::bittorrent::FileSize;
 use crate::Result;
 use anyhow::*;
 use log::*;
@@ -7,11 +6,14 @@ use std::collections::{
     HashMap, HashSet,
 };
 
+use crate::types::*;
+
 pub type OwnedMimeType = String;
 
 #[derive(Debug)]
 pub struct KeyInfo {
     pub size: FileSize,
+    pub last_modified: DateTime,
 }
 
 pub struct Index {
@@ -132,10 +134,14 @@ impl Index {
         }
         scores
             .iter()
-            .map(|(s3_key, token_hits)| SearchResultItem {
-                s3_key: (*s3_key).to_string(),
-                token_hits: *token_hits,
-                size: self.all_keys.get(*s3_key).unwrap().size,
+            .map(|(s3_key, token_hits)| {
+                let key_info = self.all_keys.get(*s3_key).unwrap();
+                SearchResultItem {
+                    s3_key: (*s3_key).to_string(),
+                    token_hits: *token_hits,
+                    size: key_info.size,
+                    last_modified: key_info.last_modified,
+                }
             })
             .collect()
     }
@@ -144,7 +150,8 @@ impl Index {
 pub struct SearchResultItem {
     pub s3_key: String,
     pub token_hits: usize,
-    pub size: crate::bittorrent::FileSize,
+    pub size: FileSize,
+    pub last_modified: crate::types::DateTime,
 }
 
 pub fn split_name(s: &str) -> impl Iterator<Item = &str> {

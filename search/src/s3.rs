@@ -10,6 +10,8 @@ use crate::handle;
 use crate::Result;
 use anyhow::*;
 
+use crate::types::*;
+
 use futures::executor::block_on;
 use log::*;
 use serde_json::json;
@@ -69,14 +71,15 @@ pub fn tokenize_object_key(key: &str) -> Result<Vec<String>> {
 
 fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<()> {
     let mut index = index.lock().unwrap();
-    match event.r#type {
-        EventType::Added => index.add_key(
-            &event.key,
+    match event {
+        Event::Added { key, size, time } => index.add_key(
+            key,
             crate::search::KeyInfo {
-                size: event.size.unwrap(),
+                size: *size,
+                last_modified: *time,
             },
         ),
-        EventType::Removed => index.remove_key(&event.key),
+        Event::Removed { key } => index.remove_key(key),
     }
 }
 
@@ -129,34 +132,31 @@ pub async fn receive_s3_events(index: &Mutex<Index>, queue_url: &str) {
 }
 
 #[derive(Debug)]
-enum EventType {
-    Added,
-    Removed,
+enum Event {
+    Added {
+        key: String,
+        size: FileSize,
+        time: DateTime,
+    },
+    Removed {
+        key: String,
+    },
 }
-
-#[derive(Debug)]
-struct Event {
-    r#type: EventType,
-    key: String,
-    size: Option<crate::bittorrent::FileSize>,
-}
-
 use serde_json::Value as JsonValue;
 use std::str::FromStr;
 
 fn parse_record(rec: JsonValue) -> Result<Event> {
     let object = &rec["s3"]["object"];
-    Ok(Event {
-        r#type: {
-            let event_name = rec["eventName"].as_str().unwrap();
-            match event_name {
-                "ObjectCreated:Put" | "ObjectCreated:CompleteMultipartUpload" => EventType::Added,
-                "ObjectRemoved:Delete" => EventType::Removed,
-                _ => bail!("unhandled event name {:?}", event_name),
-            }
+    let event_name = rec["eventName"].as_str().unwrap();
+    let key = object["key"].as_str().unwrap().to_string();
+    Ok(match event_name {
+        "ObjectCreated:Put" | "ObjectCreated:CompleteMultipartUpload" => Event::Added {
+            key,
+            size: rec["size"].as_i64().unwrap(),
+            time: DateTime::parse_from_s3(rec["eventTime"].as_str().unwrap()).unwrap(),
         },
-        key: object["key"].as_str().unwrap().to_string(),
-        size: rec["size"].as_i64(),
+        "ObjectRemoved:Delete" => Event::Removed { key },
+        _ => bail!("unhandled event name {:?}", event_name),
     })
 }
 

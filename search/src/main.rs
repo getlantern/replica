@@ -9,12 +9,15 @@ use uuid::Uuid;
 
 pub use anyhow::Result;
 
+use types::*;
+
 mod bittorrent;
 mod macros;
 mod s3;
 mod search;
 mod server;
 mod singleflight;
+mod types;
 mod warp;
 use crate::warp::run_server;
 
@@ -59,7 +62,16 @@ async fn add_all_objects(index: &Mutex<search::Index>) {
             index.lock().unwrap().add_key(
                 key,
                 search::KeyInfo {
-                    size: obj.size.unwrap()
+                    size: obj.size.unwrap(),
+                    last_modified: {
+                        let t = obj.last_modified.as_ref().unwrap();
+                        debug!("s3 object {} last modified {}", key, t);
+                        // 2020-01-15T01:24:23.000Z
+                        handle!(DateTime::parse_from_s3(t), err, {
+                            error!("error parsing time {:?}: {}", t, err);
+                            DateTime::now()
+                        })
+                    }
                 }
             ),
             err,
