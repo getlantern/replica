@@ -1,9 +1,9 @@
 #[macro_export]
 macro_rules! handle {
-    ($value:expr, $err:ident, $onerr:expr) => {
+    ($value:expr, $err:ident, $on_err:expr) => {
         match $value {
             Ok(ok) => ok,
-            Err($err) => $onerr,
+            Err($err) => $on_err,
         }
     };
 }

@@ -18,6 +18,7 @@ impl SearchResultItem {
     {
         let tokens: Vec<&str> = [&self.torrent_name, &self.file_path]
             .iter()
+            // TODO: Tokens here haven't been normalized yet. Fix this.
             .map(|x| crate::search::split_name(x))
             .flatten()
             .collect();
