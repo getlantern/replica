@@ -13,6 +13,7 @@ use types::*;
 
 mod bittorrent;
 mod macros;
+mod replica;
 mod s3;
 mod search;
 mod server;

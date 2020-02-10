@@ -18,6 +18,7 @@ pub struct SearchResultItem {
     pub torrent_name: Option<String>,
     pub mime_type: Option<String>,
     pub last_modified: crate::types::DateTime,
+    pub replica_link: ReplicaLink,
 }
 
 impl SearchResultItem {
@@ -30,12 +31,16 @@ impl SearchResultItem {
                 .first()
                 .map(|x| x.to_string()),
             search_term_hits: t.score(terms),
-            info_hash: Some(t.info_hash),
-            file_path: Some(t.file_path),
+            info_hash: Some(t.info_hash.clone()),
+            file_path: Some(t.file_path.clone()),
             file_size: t.size,
             replica_s3_key: None,
             torrent_name: Some(t.torrent_name),
             last_modified: t.age,
+            replica_link: ReplicaLink {
+                info_hash: Some(t.info_hash),
+                display_name: Some(t.file_path),
+            },
         }
     }
     fn from_search_index(t: search::SearchResultItem, search_type: Option<OwnedMimeType>) -> Self {
@@ -45,13 +50,17 @@ impl SearchResultItem {
                     .first()
                     .map(|x| x.to_string())
             }),
-            replica_s3_key: Some(t.s3_key),
+            replica_s3_key: Some(t.s3_key.clone()),
             search_term_hits: t.token_hits,
             info_hash: None,
             file_path: None,
             file_size: t.size,
             torrent_name: None,
             last_modified: t.last_modified,
+            replica_link: ReplicaLink {
+                info_hash: None,
+                display_name: Some(t.s3_key),
+            },
         }
     }
 }

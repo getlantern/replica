@@ -56,3 +56,5 @@ mod test {
         Ok(())
     }
 }
+
+pub use crate::replica::Link as ReplicaLink;
