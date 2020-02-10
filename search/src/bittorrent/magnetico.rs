@@ -68,7 +68,8 @@ impl Client {
         }
     }
 
-    // Holy crap look at this signature!
+    // Holy crap look at this signature! Also the API documentation:
+    // https://app.swaggerhub.com/apis/boramalper/magneticow-api/v0.1
     async fn get<T, Q, K, V, P>(&self, path_segments: P, query_pairs: Q) -> Result<T>
     where
         T: serde::de::DeserializeOwned,
@@ -127,7 +128,12 @@ impl Client {
     }
 
     pub async fn search(&self, query: &str) -> Result<Vec<SearchResultItem>> {
-        let torrents: Vec<Torrent> = self.get(&["torrents"], &[("query", query)]).await?;
+        let torrents: Vec<Torrent> = self
+            .get(
+                &["torrents"],
+                &[("query", query)], // https://github.com/boramalper/magnetico/tree/master/cmd/magneticow#searching
+            )
+            .await?;
         let mut ok = Vec::new();
         debug!("listing files for {} torrents", torrents.len());
         for (t, fs) in futures_util::future::join_all(torrents.into_iter().map(|t| async move {

@@ -21,7 +21,7 @@ pub struct SearchResultItem {
 }
 
 impl SearchResultItem {
-    fn from_bittorrent<'a>(
+    fn from_bittorrent(
         t: bittorrent::SearchResultItem,
         terms: impl Iterator<Item = impl std::borrow::Borrow<NormalizedToken>>,
     ) -> Self {
