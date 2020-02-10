@@ -18,7 +18,7 @@ pub struct KeyInfo {
 
 pub struct Index {
     // A map from normalized tokens to matching keys.
-    terms: HashMap<String, HashSet<String>>,
+    terms: HashMap<NormalizedToken, HashSet<String>>,
     // All the keys in the index.
     all_keys: HashMap<String, KeyInfo>,
     // Keys by their MIME top-level types.
@@ -30,10 +30,6 @@ pub struct Index {
     // This is used to maintain consistency between hashmaps built for search results.
     scores_random_state: RandomState,
 }
-
-type Tokenizer = &'static (dyn Fn(&str) -> Result<Vec<String>> + Send + Sync);
-
-type TokenNormalizer = fn(&str) -> String;
 
 pub struct Query {
     pub terms: Vec<String>,
@@ -61,7 +57,7 @@ impl Index {
             .map(|guess| guess.type_().to_string())
     }
 
-    pub fn normalized_tokens(&self, s: &str) -> Result<Vec<String>> {
+    pub fn normalized_tokens(&self, s: &str) -> Result<Vec<NormalizedToken>> {
         Ok((self.tokenize)(s)?
             .iter()
             .map(|t| (self.normalize_token)(&t))

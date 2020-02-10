@@ -2,6 +2,7 @@ mod magnetico;
 pub use magnetico::*;
 
 use crate::types::*;
+use std::borrow::Borrow;
 
 pub struct SearchResultItem {
     pub torrent_name: String,
@@ -12,19 +13,20 @@ pub struct SearchResultItem {
 }
 
 impl SearchResultItem {
-    pub fn score<'a, I>(&self, terms: I) -> usize
+    pub fn score<I>(&self, terms: I) -> usize
     where
-        I: Iterator<Item = &'a str>,
+        I: Iterator,
+        I::Item: Borrow<NormalizedToken>,
     {
-        let tokens: Vec<&str> = [&self.torrent_name, &self.file_path]
+        let tokens: Vec<NormalizedToken> = [&self.torrent_name, &self.file_path]
             .iter()
-            // TODO: Tokens here haven't been normalized yet. Fix this.
             .map(|x| crate::search::split_name(x))
             .flatten()
+            .map(NormalizedToken::new)
             .collect();
         let mut ok = 0;
         for t in terms {
-            if tokens.contains(&t) {
+            if tokens.contains(t.borrow()) {
                 ok += 1;
             }
         }

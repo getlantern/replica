@@ -30,7 +30,7 @@ async fn main() {
     env_logger::init();
     let index = Arc::new(Mutex::new(search::Index::new(
         &tokenize_object_key,
-        str::to_lowercase,
+        NormalizedToken::new,
     )));
     let s3_index = Arc::clone(&index);
     let server = server::Server {

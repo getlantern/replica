@@ -23,7 +23,7 @@ pub struct SearchResultItem {
 impl SearchResultItem {
     fn from_bittorrent<'a>(
         t: bittorrent::SearchResultItem,
-        terms: impl Iterator<Item = &'a str>,
+        terms: impl Iterator<Item = impl std::borrow::Borrow<NormalizedToken>>,
     ) -> Self {
         Self {
             mime_type: mime_guess::from_path(&t.file_path)
@@ -74,11 +74,9 @@ impl Server {
             .map(|x| SearchResultItem::from_search_index(x, query.type_.clone()))
             .collect();
         match self.bittorrent_search_client.search(&query.s).await {
-            Ok(more_results) => result.extend(
-                more_results
-                    .into_iter()
-                    .map(|x| SearchResultItem::from_bittorrent(x, query.terms())),
-            ),
+            Ok(more_results) => result.extend(more_results.into_iter().map(|x| {
+                SearchResultItem::from_bittorrent(x, query.terms().map(NormalizedToken::new))
+            })),
             Err(err) => error!("error searching bittorrent: {}", err),
         }
         result.sort_by(|l, r| l.search_term_hits.cmp(&r.search_term_hits).reverse());

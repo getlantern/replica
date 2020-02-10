@@ -30,6 +30,19 @@ impl From<Epoch> for DateTime {
     }
 }
 
+#[derive(Eq, Hash, PartialEq)]
+pub struct NormalizedToken(String);
+
+impl NormalizedToken {
+    pub fn new(s: &str) -> Self {
+        Self(s.to_lowercase())
+    }
+}
+
+pub type Tokenizer = &'static (dyn Fn(&str) -> Result<Vec<String>> + Send + Sync);
+
+pub type TokenNormalizer = fn(&str) -> NormalizedToken;
+
 #[cfg(test)]
 mod test {
     use super::*;
