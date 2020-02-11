@@ -6,7 +6,11 @@ Run with something like:
 
     RUST_LOG=rusoto=info,search=trace RUST_BACKTRACE=1 AWS_PROFILE=replica-searcher cargo run
 
-`AWS_PROFILE` is naming a profile (on my system that's in `~/.aws/credentials` that has the permissions of the AWS `replica-searcher` user. You can create a set of access keys for this user [here](https://console.aws.amazon.com/iam/home?region=ap-southeast-1#/users/replica-searcher?section=security_credentials). `search` is the name of the main module.
+`AWS_PROFILE` is naming a profile (on my system that's in `~/.aws/credentials` that has the permissions of the AWS `replica-searcher` user. You can view the access keys for this user [here](https://console.aws.amazon.com/iam/home?region=ap-southeast-1#/users/replica-searcher?section=security_credentials). You may need to get a copy of these from an colleague.
+
+`search` is the name of the main module.
+
+The `magneticow` instance to use can be configured with the environment variables `MAGNETICOW_LOCATION`, `MAGNETICO_USER`, and `MAGNETICO_PASSWORD`, and currently defaults to an instance in Paris behind Cloudflare.
 
 # Interface
 

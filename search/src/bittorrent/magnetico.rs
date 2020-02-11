@@ -40,31 +40,29 @@ pub struct Client {
     http: reqwest::Client,
     list_files_singleflight: crate::singleflight::Group<String, Result<Files, Arc<anyhow::Error>>>,
     list_files_cache: tokio::sync::RwLock<ListFilesCache>,
-}
-
-cfg_if::cfg_if! {
-    if #[cfg(feature="magnetico_localhost")] {
-        const MAGNETICOW_LOCATION: &str = "http://localhost:8081";
-        const MAGNETICO_USER: &str = "magnetico";
-        const MAGNETICO_PASSWORD: Option<&str> = Some("magnetico");
-    } else {
-        const MAGNETICOW_LOCATION: &str = "http://replica.anacrolix.link:8080";
-        const MAGNETICO_USER: &str = "derp";
-        const MAGNETICO_PASSWORD: Option<&str> = Some("secret");
-    }
+    magnetico_user: String,
+    magnetico_password: Option<String>,
 }
 
 impl Client {
     pub fn new() -> Self {
         Self {
             root_url: {
-                let mut url = Url::parse(MAGNETICOW_LOCATION).unwrap();
+                let mut url = Url::parse(
+                    &std::env::var("MAGNETICOW_LOCATION")
+                        .unwrap_or_else(|_| "http://replica.anacrolix.link:8080".to_string()),
+                )
+                .unwrap();
                 url.path_segments_mut().unwrap().extend(&["api", "v0.1"]);
                 url
             },
             http: reqwest::Client::new(),
             list_files_singleflight: crate::singleflight::Group::new(),
             list_files_cache: Default::default(),
+            magnetico_user: std::env::var("MAGNETICO_USER").unwrap_or_else(|_| "derp".to_string()),
+            magnetico_password: Some(
+                std::env::var("MAGNETICO_PASSWORD").unwrap_or_else(|_| "secret".to_string()),
+            ),
         }
     }
 
@@ -86,7 +84,7 @@ impl Client {
         let response = self
             .http
             .get(url)
-            .basic_auth(MAGNETICO_USER, MAGNETICO_PASSWORD)
+            .basic_auth(&self.magnetico_user, self.magnetico_password.as_ref())
             .send()
             .await?;
         let status = response.status();
