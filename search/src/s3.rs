@@ -146,13 +146,17 @@ use serde_json::Value as JsonValue;
 use std::str::FromStr;
 
 fn parse_record(rec: JsonValue) -> Result<Event> {
+    trace!(
+        "parsing record:\n{}",
+        serde_json::to_string_pretty(&rec).unwrap()
+    );
     let object = &rec["s3"]["object"];
     let event_name = rec["eventName"].as_str().unwrap();
     let key = object["key"].as_str().unwrap().to_string();
     Ok(match event_name {
         "ObjectCreated:Put" | "ObjectCreated:CompleteMultipartUpload" => Event::Added {
             key,
-            size: rec["size"].as_i64().unwrap(),
+            size: object["size"].as_i64().unwrap(),
             time: DateTime::parse_from_s3(rec["eventTime"].as_str().unwrap()).unwrap(),
         },
         "ObjectRemoved:Delete" => Event::Removed { key },
@@ -162,6 +166,10 @@ fn parse_record(rec: JsonValue) -> Result<Event> {
 
 fn get_records(body: String) -> Result<Vec<JsonValue>> {
     let value = JsonValue::from_str(body.as_str())?;
+    debug!(
+        "message body json:\n{}",
+        serde_json::to_string_pretty(&value).unwrap()
+    );
     let mut value = JsonValue::from_str(value["Message"].as_str().unwrap())?;
     if let JsonValue::Array(records) = value["Records"].take() {
         Ok(records)
