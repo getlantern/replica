@@ -7,16 +7,16 @@ pub struct Link {
 
 impl ToString for Link {
     fn to_string(&self) -> String {
-        let mut ret = "magnet:?".to_owned();
-        if let Some(ih) = &self.info_hash {
+        let query_str = match &self.info_hash {
             // Every implementation wants to escape ':', but we don't.
-            ret += &format!("xt=urn:btih:{}", ih);
-        }
-        let mut query = url::form_urlencoded::Serializer::new(ret);
+            Some(ih) => format!("xt=urn:btih:{}", ih),
+            None => "".to_string(),
+        };
+        let mut query = url::form_urlencoded::Serializer::new(query_str);
         if let Some(dn) = &self.display_name {
             query.append_pair("dn", &dn);
         }
-        query.finish()
+        format!("magnet:?{}", query.finish())
     }
 }
 
@@ -41,5 +41,13 @@ mod test {
             display_name: Some(dn.to_owned()),
         };
         assert_eq!(l.to_string(), "magnet:?xt=urn:btih:abcd&dn=yo");
+    }
+    #[test]
+    fn test_no_infohash() {
+        let l = Link {
+            info_hash: None,
+            display_name: Some("hello there!".to_string()),
+        };
+        assert_eq!(l.to_string(), "magnet:?dn=hello+there%21");
     }
 }
