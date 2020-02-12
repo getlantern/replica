@@ -32,11 +32,11 @@ impl SearchResultItem {
             file_path: Some(t.file_path.clone()),
             file_size: t.size,
             replica_s3_key: None,
-            torrent_name: Some(t.torrent_name),
+            torrent_name: Some(t.torrent_name.clone()),
             last_modified: t.age,
             replica_link: ReplicaLink {
                 info_hash: Some(t.info_hash),
-                display_name: Some(t.file_path),
+                display_name: Some(format!("{}/{}",t.torrent_name,t.file_path)),
                 trackers: vec![],
             },
         }
