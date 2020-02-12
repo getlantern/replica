@@ -50,13 +50,6 @@ impl Index {
         }
     }
 
-    // TODO: Should this belong on a Key type?
-    fn key_mime_types(key: &str) -> impl Iterator<Item = OwnedMimeType> {
-        mime_guess::from_path(key)
-            .iter()
-            .map(|guess| guess.type_().to_string())
-    }
-
     pub fn normalized_tokens(&self, s: &str) -> Result<Vec<NormalizedToken>> {
         Ok((self.tokenize)(s)?
             .iter()
@@ -70,7 +63,7 @@ impl Index {
         }
         trace!("added key {}, info {:?} to index", key, &info);
         self.all_keys.insert(key.to_owned(), info);
-        for type_ in Index::key_mime_types(key) {
+        for type_ in path_mime_types(key) {
             self.keys_by_type
                 .entry(type_)
                 .or_default()
@@ -92,7 +85,7 @@ impl Index {
                 panic!();
             }
         }
-        for type_ in Index::key_mime_types(key) {
+        for type_ in path_mime_types(key) {
             // We know the top-level MIME type has to be present, but we don't know (or care) how
             // many guesses match it. There's no point removing the set if we empty it, as the types
             // are quite coarse.
@@ -154,4 +147,10 @@ pub struct SearchResultItem {
 
 pub fn split_name(s: &str) -> impl Iterator<Item = &str> {
     s.split(|c: char| c.is_whitespace() || c.is_ascii_punctuation())
+}
+
+pub fn path_mime_types(key: &str) -> impl Iterator<Item = OwnedMimeType> {
+    mime_guess::from_path(key)
+        .iter()
+        .map(|guess| guess.type_().to_string())
 }

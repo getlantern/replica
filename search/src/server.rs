@@ -1,5 +1,5 @@
 use crate::bittorrent;
-use crate::search::{self, OwnedMimeType};
+use crate::search::{self, path_mime_types, OwnedMimeType};
 use crate::types::*;
 use log::*;
 use serde::{Deserialize, Serialize};
@@ -92,9 +92,21 @@ impl Server {
             .map(|x| SearchResultItem::from_search_index(x, query.type_.clone()))
             .collect();
         match self.bittorrent_search_client.search(&query.s).await {
-            Ok(more_results) => result.extend(more_results.into_iter().map(|x| {
-                SearchResultItem::from_bittorrent(x, query.terms().map(NormalizedToken::new))
-            })),
+            Ok(more_results) => result.extend(
+                more_results
+                    .into_iter()
+                    .filter(|x| {
+                        query.type_.as_ref().map_or(true, |query_type| {
+                            path_mime_types(&x.file_path).any(|path_type| &path_type == query_type)
+                        })
+                    })
+                    .map(|x| {
+                        SearchResultItem::from_bittorrent(
+                            x,
+                            query.terms().map(NormalizedToken::new),
+                        )
+                    }),
+            ),
             Err(err) => error!("error searching bittorrent: {}", err),
         }
         result.sort_by(|l, r| l.search_term_hits.cmp(&r.search_term_hits).reverse());
