@@ -11,6 +11,25 @@ pub struct DateTime(WrappedDateTime);
 
 pub use anyhow::Result;
 
+// #[derive(Debug)]
+pub struct InfoHash(bip_metainfo::InfoHash);
+
+impl From<bip_metainfo::InfoHash> for InfoHash {
+    fn from(f: bip_metainfo::InfoHash) -> Self {
+        Self(f)
+    }
+}
+
+use std::fmt;
+
+impl fmt::Debug for InfoHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", hex::encode(self.0))
+    }
+}
+
+// pub use bip_metainfo::InfoHash;
+
 impl DateTime {
     pub fn now() -> Self {
         Self(chrono::Utc::now())

@@ -1,4 +1,3 @@
-use crate::Result;
 use anyhow::*;
 use log::*;
 use std::collections::{
@@ -14,6 +13,7 @@ pub type OwnedMimeType = String;
 pub struct KeyInfo {
     pub size: FileSize,
     pub last_modified: DateTime,
+    pub info_hash: InfoHash,
 }
 
 pub struct Index {

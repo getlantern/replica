@@ -1,5 +1,6 @@
 use crate::s3::tokenize_object_key;
 use crate::s3::*;
+use ::search::*;
 
 use log::*;
 use std::sync::{Arc, Mutex};
@@ -9,20 +10,9 @@ use uuid::Uuid;
 
 pub use anyhow::Result;
 
-use types::*;
+use ::search::types::*;
 
-mod bittorrent;
-mod macros;
-mod replica;
-mod s3;
-mod search;
-mod server;
-mod singleflight;
-mod types;
-mod warp;
-use crate::warp::run_server;
-
-type IndexState = Arc<Mutex<search::Index>>;
+use ::search::warp::run_server;
 
 const QUEUE_NAME_PREFIX: &str = "replica_search_queue";
 
@@ -39,30 +29,39 @@ async fn main() {
         bittorrent_search_client: bittorrent::Client::new(),
     };
     tokio::select! {
-        _ = s3_stuff(&s3_index) => {}
+        _ = s3_stuff(s3_index) => {}
         _ = run_server(Arc::new(server)) => {}
         r = signal::ctrl_c() => { r.unwrap() }
     }
 }
 
-async fn s3_stuff(index: &Mutex<search::Index>) {
+async fn s3_stuff(index: Arc<Mutex<search::Index>>) {
     let queue_name = format!("{}-{}", QUEUE_NAME_PREFIX, Uuid::new_v4().to_simple());
     let queue = create_event_queue(&queue_name).await;
     let subscription = subscribe_queue(&queue_name).await;
     info!("subscription arn: {}", subscription.arn);
-    add_all_objects(&index).await;
+    add_all_objects(index.clone()).await;
+    trace!("processing s3 events");
     receive_s3_events(&index, &queue.url).await;
 }
 
-async fn add_all_objects(index: &Mutex<search::Index>) {
+use futures::future::join_all;
+use tokio::spawn;
+
+async fn add_all_objects(index: Arc<Mutex<search::Index>>) {
     let objects = get_all_objects().await;
-    for obj in &objects {
+    let mut tasks = vec![];
+    for obj in objects {
         trace!("adding s3 object {:?}", obj);
-        let key = obj.key.as_ref().unwrap();
-        handle!(
-            index.lock().unwrap().add_key(
+        let index = index.clone();
+        tasks.push(spawn(async move {
+            let key = obj.key.as_ref().unwrap();
+            // TODO: This could fail.
+            let info_hash = s3::get_infohash(key.to_string()).await.unwrap();
+            if let Err(err) = index.lock().unwrap().add_key(
                 key,
                 search::KeyInfo {
+                    info_hash,
                     size: obj.size.unwrap(),
                     last_modified: {
                         let t = obj.last_modified.as_ref().unwrap();
@@ -72,15 +71,14 @@ async fn add_all_objects(index: &Mutex<search::Index>) {
                             error!("error parsing time {:?}: {}", t, err);
                             DateTime::now()
                         })
-                    }
-                }
-            ),
-            err,
-            {
+                    },
+                },
+            ) {
                 error!("error adding {:?} to index: {}", key, err);
-                continue;
+                return;
             }
-        );
-        info!("added {} to index", key);
+            info!("added {} to index", key);
+        }));
     }
+    join_all(tasks).await;
 }

@@ -7,7 +7,6 @@ use rusoto_sqs::*;
 use std::collections::HashMap;
 
 use crate::handle;
-use crate::Result;
 use anyhow::*;
 
 use crate::types::*;
@@ -21,6 +20,7 @@ use uuid::Uuid;
 const REGION: Region = Region::ApSoutheast1;
 const TEST_BOUNDARIES: bool = false;
 const ACCOUNT_ID: &str = "670960738222";
+const REPLICA_BUCKET: &str = "getlantern-replica";
 
 pub async fn get_all_objects() -> Vec<Object> {
     let s3 = S3Client::new(REGION);
@@ -28,7 +28,7 @@ pub async fn get_all_objects() -> Vec<Object> {
     let mut token = None;
     loop {
         let req = ListObjectsV2Request {
-            bucket: "getlantern-replica".to_string(),
+            bucket: REPLICA_BUCKET.to_string(),
             max_keys: if TEST_BOUNDARIES {
                 Some(2)
             } else {
@@ -69,16 +69,20 @@ pub fn tokenize_object_key(key: &str) -> Result<Vec<String>> {
     ok
 }
 
-fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<()> {
+async fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<()> {
     let mut index = index.lock().unwrap();
     match event {
-        Event::Added { key, size, time } => index.add_key(
-            key,
-            crate::search::KeyInfo {
-                size: *size,
-                last_modified: *time,
-            },
-        ),
+        Event::Added { key, size, time } => {
+            let info_hash = get_infohash(key.to_string()).await?;
+            index.add_key(
+                key,
+                crate::search::KeyInfo {
+                    info_hash,
+                    size: *size,
+                    last_modified: *time,
+                },
+            )
+        }
         Event::Removed { key } => index.remove_key(key),
     }
 }
@@ -105,12 +109,12 @@ pub async fn receive_s3_events(index: &Mutex<Index>, queue_url: &str) {
         trace!("result messages: {:#?}", result.messages);
         for msg in result.messages.unwrap_or_default() {
             let body = msg.body.unwrap();
-            let _delete = sqs
-                .delete_message(rusoto_sqs::DeleteMessageRequest {
-                    queue_url: queue_url.to_owned(),
-                    receipt_handle: msg.receipt_handle.unwrap(),
-                })
-                .await;
+            sqs.delete_message(rusoto_sqs::DeleteMessageRequest {
+                queue_url: queue_url.to_owned(),
+                receipt_handle: msg.receipt_handle.unwrap(),
+            })
+            .await
+            .unwrap();
             debug!("got message: {:#?}", body);
             let records = handle!(get_records(body), err, {
                 warn!("error getting records: {}", err);
@@ -121,7 +125,7 @@ pub async fn receive_s3_events(index: &Mutex<Index>, queue_url: &str) {
                     error!("parsing record: {}", err);
                     continue;
                 });
-                handle!(handle_event(&event, index), err, {
+                handle!(handle_event(&event, index).await, err, {
                     error!("error handling event {:?}: {}", event, err);
                     continue;
                 });
@@ -329,4 +333,49 @@ pub async fn unsubscribe(arn: &str) {
         .await
         .unwrap();
     info!("unsubscribed {}", arn);
+}
+
+// This lets us call into_async_read on S3 response streaming bodies.
+use tokio::io::AsyncReadExt;
+
+// bip_metainfo's error handling doesn't implement Sync, which anyhow requires. Something to do with
+// error_chain.
+#[derive(Debug)]
+struct MetainfoParseError(String);
+
+impl MetainfoParseError {
+    // Should this be with the From trait? Who cares?
+    fn from(f: bip_metainfo::error::ParseError) -> Self {
+        Self(f.description().to_string())
+    }
+}
+
+impl std::error::Error for MetainfoParseError {}
+
+impl std::fmt::Display for MetainfoParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+// Given an object key in the Replica S3 bucket, return its infohash.
+pub async fn get_infohash(key: String) -> Result<InfoHash> {
+    trace!("getting infohash for {:?}", key);
+    let s3 = S3Client::new(REGION);
+    let mut buf: Vec<u8> = vec![];
+    s3.get_object_torrent(GetObjectTorrentRequest {
+        bucket: REPLICA_BUCKET.to_owned(),
+        key: key.clone(),
+        request_payer: None,
+    })
+    .await?
+    .body
+    .unwrap()
+    .into_async_read()
+    .read_to_end(&mut buf)
+    .await?;
+    let metainfo = bip_metainfo::Metainfo::from_bytes(&buf).map_err(MetainfoParseError::from)?;
+    let info_hash = metainfo.info().info_hash().into();
+    trace!("s3 key {:?} has infohash {:?}", key, info_hash);
+    Ok(info_hash)
 }

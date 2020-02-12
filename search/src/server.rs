@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::IndexState;
-
 use crate::search::{self, OwnedMimeType};
 
 use crate::bittorrent;
@@ -69,7 +67,7 @@ type SearchResult = Vec<SearchResultItem>;
 
 pub struct Server {
     pub bittorrent_search_client: bittorrent::Client,
-    pub replica_s3_index: IndexState,
+    pub replica_s3_index: std::sync::Arc<std::sync::Mutex<search::Index>>,
 }
 
 impl Server {
