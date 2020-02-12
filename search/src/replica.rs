@@ -2,10 +2,13 @@ use serde::{Serialize, Serializer};
 
 pub const TRACKERS: &[&str] = &["http://s3-tracker.ap-southeast-1.amazonaws.com:6969/announce"];
 
+#[derive(Default)]
 pub struct Link {
     pub info_hash: Option<String>,
     pub display_name: Option<String>,
     pub trackers: Vec<String>,
+    pub acceptable_source: Option<String>,
+    pub exact_source: Option<String>,
 }
 
 impl ToString for Link {
@@ -16,9 +19,14 @@ impl ToString for Link {
             None => "".to_string(),
         };
         let mut query = url::form_urlencoded::Serializer::new(query_str);
-        if let Some(dn) = &self.display_name {
-            query.append_pair("dn", &dn);
-        }
+        let mut append_some = |key, opt: &Option<String>| {
+            if let Some(val) = opt.as_ref() {
+                query.append_pair(key, val);
+            }
+        };
+        append_some("dn", &self.display_name);
+        append_some("xs", &self.exact_source);
+        append_some("as", &self.acceptable_source);
         query.extend_pairs(self.trackers.iter().map(|v| ("tr", v)));
         format!("magnet:?{}", query.finish())
     }
@@ -44,6 +52,7 @@ mod test {
             info_hash: Some(ih.to_owned()),
             display_name: Some(dn.to_owned()),
             trackers: vec!["a".to_string(), "b".to_string()],
+            ..Default::default()
         };
         assert_eq!(l.to_string(), "magnet:?xt=urn:btih:abcd&dn=yo&tr=a&tr=b");
     }
@@ -53,6 +62,7 @@ mod test {
             info_hash: None,
             display_name: Some("hello there!".to_string()),
             trackers: vec![],
+            ..Default::default()
         };
         assert_eq!(l.to_string(), "magnet:?dn=hello+there%21");
     }

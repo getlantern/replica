@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
-use crate::search::{self, OwnedMimeType};
 use crate::bittorrent;
+use crate::search::{self, OwnedMimeType};
 use crate::types::*;
 use log::*;
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 
 #[derive(Serialize)]
@@ -36,8 +36,9 @@ impl SearchResultItem {
             last_modified: t.age,
             replica_link: ReplicaLink {
                 info_hash: Some(t.info_hash),
-                display_name: Some(format!("{}/{}",t.torrent_name,t.file_path)),
+                display_name: Some(format!("{}/{}", t.torrent_name, t.file_path)),
                 trackers: vec![],
+                ..Default::default()
             },
         }
     }
@@ -56,6 +57,11 @@ impl SearchResultItem {
             torrent_name: None,
             last_modified: t.last_modified,
             replica_link: ReplicaLink {
+                exact_source: Some(format!("replica:{}", &t.s3_key)),
+                acceptable_source: Some(format!(
+                    "https://getlantern-replica.s3-ap-southeast-1.amazonaws.com/{}",
+                    &t.s3_key
+                )),
                 info_hash: None,
                 display_name: Some(t.s3_key),
                 trackers: crate::replica::TRACKERS

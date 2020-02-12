@@ -1,14 +1,14 @@
 use crate::s3::tokenize_object_key;
 use crate::s3::*;
-use ::search::*;
-use log::*;
-use std::sync::{Arc};
-use tokio::sync::Mutex;
-use tokio::signal;
-use uuid::Uuid;
 use ::search::types::*;
+use ::search::*;
 use futures::future::join_all;
+use log::*;
+use std::sync::Arc;
+use tokio::signal;
 use tokio::spawn;
+use tokio::sync::Mutex;
+use uuid::Uuid;
 
 const QUEUE_NAME_PREFIX: &str = "replica_search_queue";
 
