@@ -1,10 +1,10 @@
+use super::types::*;
 use serde::{Serialize, Serializer};
 
 pub const TRACKERS: &[&str] = &["http://s3-tracker.ap-southeast-1.amazonaws.com:6969/announce"];
 
-#[derive(Default)]
 pub struct Link {
-    pub info_hash: Option<String>,
+    pub info_hash: String,
     pub display_name: Option<String>,
     pub trackers: Vec<String>,
     pub acceptable_source: Option<String>,
@@ -13,11 +13,7 @@ pub struct Link {
 
 impl ToString for Link {
     fn to_string(&self) -> String {
-        let query_str = match &self.info_hash {
-            // Every implementation wants to escape ':', but we don't.
-            Some(ih) => format!("xt=urn:btih:{}", ih),
-            None => "".to_string(),
-        };
+        let query_str = format!("xt=urn:btih:{}", self.info_hash);
         let mut query = url::form_urlencoded::Serializer::new(query_str);
         let mut append_some = |key, opt: &Option<String>| {
             if let Some(val) = opt.as_ref() {
@@ -49,21 +45,12 @@ mod test {
         let ih = "abcd";
         let dn = "yo";
         let l = Link {
-            info_hash: Some(ih.to_owned()),
+            info_hash: ih.to_owned(),
             display_name: Some(dn.to_owned()),
             trackers: vec!["a".to_string(), "b".to_string()],
-            ..Default::default()
+            exact_source: None,
+            acceptable_source: None,
         };
         assert_eq!(l.to_string(), "magnet:?xt=urn:btih:abcd&dn=yo&tr=a&tr=b");
-    }
-    #[test]
-    fn test_no_infohash() {
-        let l = Link {
-            info_hash: None,
-            display_name: Some("hello there!".to_string()),
-            trackers: vec![],
-            ..Default::default()
-        };
-        assert_eq!(l.to_string(), "magnet:?dn=hello+there%21");
     }
 }

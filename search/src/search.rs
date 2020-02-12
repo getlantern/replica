@@ -137,6 +137,7 @@ impl Index {
                     token_hits: *token_hits,
                     size: key_info.size,
                     last_modified: key_info.last_modified,
+                    info_hash: key_info.info_hash,
                 }
             })
             .collect()
@@ -148,6 +149,7 @@ pub struct SearchResultItem {
     pub token_hits: usize,
     pub size: FileSize,
     pub last_modified: crate::types::DateTime,
+    pub info_hash: InfoHash,
 }
 
 pub fn split_name(s: &str) -> impl Iterator<Item = &str> {

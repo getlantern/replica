@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 pub struct SearchResultItem {
     pub replica_s3_key: Option<String>,
     pub search_term_hits: usize,
-    pub info_hash: Option<String>,
+    pub info_hash: String,
     pub file_path: Option<String>,
     pub file_size: FileSize,
     pub torrent_name: Option<String>,
@@ -28,17 +28,18 @@ impl SearchResultItem {
                 .first()
                 .map(|x| x.to_string()),
             search_term_hits: t.score(terms),
-            info_hash: Some(t.info_hash.clone()),
+            info_hash: t.info_hash.clone(),
             file_path: Some(t.file_path.clone()),
             file_size: t.size,
             replica_s3_key: None,
             torrent_name: Some(t.torrent_name.clone()),
             last_modified: t.age,
             replica_link: ReplicaLink {
-                info_hash: Some(t.info_hash),
+                info_hash: t.info_hash,
                 display_name: Some(format!("{}/{}", t.torrent_name, t.file_path)),
                 trackers: vec![],
-                ..Default::default()
+                exact_source: None,
+                acceptable_source: None,
             },
         }
     }
@@ -51,7 +52,7 @@ impl SearchResultItem {
             }),
             replica_s3_key: Some(t.s3_key.clone()),
             search_term_hits: t.token_hits,
-            info_hash: None,
+            info_hash: t.info_hash.to_string(),
             file_path: None,
             file_size: t.size,
             torrent_name: None,
@@ -62,7 +63,7 @@ impl SearchResultItem {
                     "https://getlantern-replica.s3-ap-southeast-1.amazonaws.com/{}",
                     &t.s3_key
                 )),
-                info_hash: None,
+                info_hash: t.info_hash.to_string(),
                 display_name: Some(t.s3_key),
                 trackers: crate::replica::TRACKERS
                     .iter()

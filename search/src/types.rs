@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 use chrono::offset::TimeZone;
 
@@ -11,7 +11,7 @@ pub struct DateTime(WrappedDateTime);
 
 pub use anyhow::Result;
 
-// #[derive(Debug)]
+#[derive(Copy, Clone)]
 pub struct InfoHash(bip_metainfo::InfoHash);
 
 impl From<bip_metainfo::InfoHash> for InfoHash {
@@ -28,7 +28,20 @@ impl fmt::Debug for InfoHash {
     }
 }
 
-// pub use bip_metainfo::InfoHash;
+impl fmt::Display for InfoHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", hex::encode(self.0))
+    }
+}
+
+impl Serialize for InfoHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
 
 impl DateTime {
     pub fn now() -> Self {
