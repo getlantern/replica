@@ -1,18 +1,13 @@
 use crate::s3::tokenize_object_key;
 use crate::s3::*;
 use ::search::*;
-
 use log::*;
 use std::sync::{Arc, Mutex};
-
 use tokio::signal;
 use uuid::Uuid;
-
-pub use anyhow::Result;
-
 use ::search::types::*;
-
-use ::search::warp::run_server;
+use futures::future::join_all;
+use tokio::spawn;
 
 const QUEUE_NAME_PREFIX: &str = "replica_search_queue";
 
@@ -30,7 +25,7 @@ async fn main() {
     };
     tokio::select! {
         _ = s3_stuff(s3_index) => {}
-        _ = run_server(Arc::new(server)) => {}
+        _ = ::search::warp::run_server(Arc::new(server)) => {}
         r = signal::ctrl_c() => { r.unwrap() }
     }
 }
@@ -45,8 +40,6 @@ async fn s3_stuff(index: Arc<Mutex<search::Index>>) {
     receive_s3_events(&index, &queue.url).await;
 }
 
-use futures::future::join_all;
-use tokio::spawn;
 
 async fn add_all_objects(index: Arc<Mutex<search::Index>>) {
     let objects = get_all_objects().await;
