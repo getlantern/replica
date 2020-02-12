@@ -215,6 +215,8 @@ fn queue_policy(queue_arn: &str) -> String {
     .to_string()
 }
 
+// This determines whether the event queue is created with the policy, or the policy is set after
+// creation. This came up while debugging permissioning, I'm not sure how important it is now.
 const CREATE_WITH_POLICY: bool = true;
 
 pub struct EventQueue {
