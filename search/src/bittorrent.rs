@@ -1,8 +1,8 @@
 mod magnetico;
-pub use magnetico::*;
-
 use crate::types::*;
+pub use magnetico::*;
 use std::borrow::Borrow;
+use std::collections::HashSet;
 
 pub struct SearchResultItem {
     pub torrent_name: String,
@@ -18,16 +18,20 @@ impl SearchResultItem {
         I: Iterator,
         I::Item: Borrow<NormalizedToken>,
     {
-        let tokens: Vec<NormalizedToken> = [&self.torrent_name, &self.file_path]
+        let token_groups: Vec<HashSet<NormalizedToken>> = [&self.torrent_name, &self.file_path]
             .iter()
-            .map(|x| crate::search::split_name(x))
-            .flatten()
-            .map(NormalizedToken::new)
+            .map(|x| {
+                crate::search::split_name(x)
+                    .map(NormalizedToken::new)
+                    .collect()
+            })
             .collect();
         let mut ok = 0;
         for t in terms {
-            if tokens.contains(t.borrow()) {
-                ok += 1;
+            for g in &token_groups {
+                if g.contains(t.borrow()) {
+                    ok += 1;
+                }
             }
         }
         ok
