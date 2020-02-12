@@ -1,8 +1,11 @@
 use serde::{Serialize, Serializer};
 
+pub const TRACKERS: &[&str] = &["http://s3-tracker.ap-southeast-1.amazonaws.com:6969/announce"];
+
 pub struct Link {
     pub info_hash: Option<String>,
     pub display_name: Option<String>,
+    pub trackers: Vec<String>,
 }
 
 impl ToString for Link {
@@ -16,6 +19,7 @@ impl ToString for Link {
         if let Some(dn) = &self.display_name {
             query.append_pair("dn", &dn);
         }
+        query.extend_pairs(self.trackers.iter().map(|v| ("tr", v)));
         format!("magnet:?{}", query.finish())
     }
 }
@@ -39,14 +43,16 @@ mod test {
         let l = Link {
             info_hash: Some(ih.to_owned()),
             display_name: Some(dn.to_owned()),
+            trackers: vec!["a".to_string(), "b".to_string()],
         };
-        assert_eq!(l.to_string(), "magnet:?xt=urn:btih:abcd&dn=yo");
+        assert_eq!(l.to_string(), "magnet:?xt=urn:btih:abcd&dn=yo&tr=a&tr=b");
     }
     #[test]
     fn test_no_infohash() {
         let l = Link {
             info_hash: None,
             display_name: Some("hello there!".to_string()),
+            trackers: vec![],
         };
         assert_eq!(l.to_string(), "magnet:?dn=hello+there%21");
     }

@@ -38,6 +38,7 @@ impl SearchResultItem {
             replica_link: ReplicaLink {
                 info_hash: Some(t.info_hash),
                 display_name: Some(t.file_path),
+                trackers: vec![],
             },
         }
     }
@@ -58,6 +59,10 @@ impl SearchResultItem {
             replica_link: ReplicaLink {
                 info_hash: None,
                 display_name: Some(t.s3_key),
+                trackers: crate::replica::TRACKERS
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect(),
             },
         }
     }
