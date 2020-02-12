@@ -279,6 +279,7 @@ pub async fn create_event_queue(name: &str) -> EventQueue {
     queue
 }
 
+#[derive(Debug)]
 pub struct Subscription {
     pub arn: String,
 }
@@ -286,6 +287,14 @@ pub struct Subscription {
 impl Drop for Subscription {
     fn drop(&mut self) {
         block_on(unsubscribe(&self.arn))
+    }
+}
+
+use std::fmt;
+
+impl fmt::Display for Subscription {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
     }
 }
 
