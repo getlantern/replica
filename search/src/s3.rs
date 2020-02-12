@@ -14,7 +14,7 @@ use crate::types::*;
 use futures::executor::block_on;
 use log::*;
 use serde_json::json;
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 const REGION: Region = Region::ApSoutheast1;
@@ -70,7 +70,7 @@ pub fn tokenize_object_key(key: &str) -> Result<Vec<String>> {
 }
 
 async fn handle_event(event: &Event, index: &Mutex<Index>) -> Result<()> {
-    let mut index = index.lock().unwrap();
+    let mut index = index.lock().await;
     match event {
         Event::Added { key, size, time } => {
             let info_hash = get_infohash(key.to_string()).await?;

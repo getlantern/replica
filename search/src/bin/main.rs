@@ -2,7 +2,8 @@ use crate::s3::tokenize_object_key;
 use crate::s3::*;
 use ::search::*;
 use log::*;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
+use tokio::sync::Mutex;
 use tokio::signal;
 use uuid::Uuid;
 use ::search::types::*;
@@ -40,7 +41,6 @@ async fn s3_stuff(index: Arc<Mutex<search::Index>>) {
     receive_s3_events(&index, &queue.url).await;
 }
 
-
 async fn add_all_objects(index: Arc<Mutex<search::Index>>) {
     let objects = get_all_objects().await;
     let mut tasks = vec![];
@@ -51,7 +51,7 @@ async fn add_all_objects(index: Arc<Mutex<search::Index>>) {
             let key = obj.key.as_ref().unwrap();
             // TODO: This could fail.
             let info_hash = s3::get_infohash(key.to_string()).await.unwrap();
-            if let Err(err) = index.lock().unwrap().add_key(
+            if let Err(err) = index.lock().await.add_key(
                 key,
                 search::KeyInfo {
                     info_hash,

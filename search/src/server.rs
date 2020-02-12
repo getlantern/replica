@@ -1,10 +1,9 @@
 use serde::{Deserialize, Serialize};
-
 use crate::search::{self, OwnedMimeType};
-
 use crate::bittorrent;
 use crate::types::*;
 use log::*;
+use tokio::sync::Mutex;
 
 #[derive(Serialize)]
 pub struct SearchResultItem {
@@ -72,7 +71,7 @@ type SearchResult = Vec<SearchResultItem>;
 
 pub struct Server {
     pub bittorrent_search_client: bittorrent::Client,
-    pub replica_s3_index: std::sync::Arc<std::sync::Mutex<search::Index>>,
+    pub replica_s3_index: std::sync::Arc<Mutex<search::Index>>,
 }
 
 impl Server {
@@ -80,7 +79,7 @@ impl Server {
         let mut result: SearchResult = self
             .replica_s3_index
             .lock()
-            .unwrap()
+            .await
             .get_matches(query.terms(), &query.type_)
             .into_iter()
             .map(|x| SearchResultItem::from_search_index(x, query.type_.clone()))
