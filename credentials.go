@@ -41,7 +41,6 @@ func (cp *cognitoProvider) newCredentials() (*cognitoidentity.Credentials, error
 		IdentityId: idRes.IdentityId,
 	})
 	return credRes.Credentials, nil
-
 }
 
 func (cp *cognitoProvider) getCredentials() (*credentials.Credentials, error) {

@@ -123,8 +123,14 @@ func GetTorrent(key string) error {
 	return nil
 }
 
+type IteredUpload struct {
+	*metainfo.MetaInfo
+	os.FileInfo
+	Err error
+}
+
 // IterUploads walks the torrent files stored in the directory.
-func IterUploads(dir string, f func(mi *metainfo.MetaInfo, err error)) error {
+func IterUploads(dir string, f func(IteredUpload)) error {
 	entries, err := ioutil.ReadDir(dir)
 	if os.IsNotExist(err) {
 		return nil
@@ -136,10 +142,10 @@ func IterUploads(dir string, f func(mi *metainfo.MetaInfo, err error)) error {
 		p := filepath.Join(dir, e.Name())
 		mi, err := metainfo.LoadFromFile(p)
 		if err != nil {
-			f(nil, fmt.Errorf("loading metainfo from file %q: %w", p, err))
+			f(IteredUpload{Err: fmt.Errorf("loading metainfo from file %q: %w", p, err)})
 			continue
 		}
-		f(mi, nil)
+		f(IteredUpload{MetaInfo: mi, FileInfo: e})
 	}
 	return nil
 }
