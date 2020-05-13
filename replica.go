@@ -127,9 +127,11 @@ func Upload(r io.Reader, fileName string) (output UploadOutput, err error) {
 
 	output.Info = &metainfo.Info{
 		PieceLength: pieceLength,
-		Name:        fileName,
-		Length:      cw.BytesWritten,
+		Name:        output.S3Prefix.String(),
 		Pieces:      pieces,
+		Files: []metainfo.FileInfo{
+			{Length: cw.BytesWritten, Path: []string{fileName}},
+		},
 	}
 	infoBytes, err := bencode.Marshal(output.Info)
 	if err != nil {
