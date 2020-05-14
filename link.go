@@ -3,21 +3,22 @@ package replica
 import (
 	"fmt"
 	"net/url"
+	"path"
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 )
 
-func CreateLink(ih torrent.InfoHash, s3Prefix S3Prefix, fileName string) string {
+func CreateLink(ih torrent.InfoHash, s3Prefix S3Prefix, filePath []string) string {
 	return metainfo.Magnet{
 		InfoHash:    ih,
-		DisplayName: fileName,
+		DisplayName: path.Join(filePath...),
 		Params: url.Values{
 			"as": {
 				fmt.Sprintf(
 					"https://getlantern-replica.s3-ap-southeast-1.amazonaws.com/%s/data/%s",
 					s3Prefix,
-					fileName,
+					path.Join(filePath...),
 				),
 			},
 			"xs": {(&url.URL{Scheme: "replica", Opaque: s3Prefix.String()}).String()},

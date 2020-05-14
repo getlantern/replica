@@ -37,7 +37,7 @@ func mainErr() error {
 						return err
 					}
 					log.Printf("uploaded to %q", output.S3Prefix)
-					fmt.Printf("%s\n", replica.CreateLink(output.Metainfo.HashInfoBytes(), output.S3Prefix, output.Info.Name))
+					fmt.Printf("%s\n", replica.CreateLink(output.Metainfo.HashInfoBytes(), output.S3Prefix, output.Info.FilePath()))
 				}
 				return nil
 			}())

@@ -75,7 +75,7 @@ func NewPrefix() S3Prefix {
 type UploadOutput struct {
 	S3Prefix S3Prefix
 	Metainfo *metainfo.MetaInfo
-	Info     *metainfo.Info
+	Info     Info
 }
 
 // Creates a new Replica object from the Reader with the given name. Returns the objects S3 UUID
@@ -125,7 +125,7 @@ func Upload(r io.Reader, fileName string) (output UploadOutput, err error) {
 		return
 	}
 
-	output.Info = &metainfo.Info{
+	output.Info.TorrentInfo = &metainfo.Info{
 		PieceLength: pieceLength,
 		Name:        output.S3Prefix.String(),
 		Pieces:      pieces,
@@ -133,7 +133,7 @@ func Upload(r io.Reader, fileName string) (output UploadOutput, err error) {
 			{Length: cw.BytesWritten, Path: []string{fileName}},
 		},
 	}
-	infoBytes, err := bencode.Marshal(output.Info)
+	infoBytes, err := bencode.Marshal(output.Info.TorrentInfo)
 	if err != nil {
 		panic(err)
 	}

@@ -13,7 +13,7 @@ func TestCreateLink(t *testing.T) {
 	const infoHashHex = "deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee"
 	var infoHash torrent.InfoHash
 	require.NoError(t, infoHash.FromHexString(infoHashHex))
-	link := CreateLink(infoHash, "big long uuid/herp.txt", "nice name")
+	link := CreateLink(infoHash, "big long uuid/herp.txt", []string{"nice name"})
 	require.EqualValues(t,
 		"magnet:?xt=urn:btih:deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee"+
 			"&as=https%3A%2F%2Fgetlantern-replica.s3-ap-southeast-1.amazonaws.com%2Fbig+long+uuid%2Fherp.txt%2Fdata%2Fnice+name"+
