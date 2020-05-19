@@ -18,8 +18,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"golang.org/x/xerrors"
-
-	"github.com/google/uuid"
 )
 
 func newSession() (*session.Session, error) {
@@ -32,18 +30,6 @@ func newSession() (*session.Session, error) {
 		Credentials: creds,
 		Region:      aws.String(region),
 	})), nil
-}
-
-// The UUID prefix used on S3 to group objects related to an upload.
-type S3Prefix string
-
-func (me S3Prefix) String() string {
-	return string(me)
-}
-
-// The key where the metainfo for the data directory should be stored.
-func (me S3Prefix) TorrentKey() string {
-	return path.Join(string(me), "torrent")
 }
 
 // Retrieves the metainfo object for the given prefix from S3.
@@ -61,15 +47,6 @@ func GetMetainfo(s3Prefix S3Prefix) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("getting s3 object: %w", err)
 	}
 	return out.Body, nil
-}
-
-// NewPrefix creates a new random S3 key prefix to anonymize uploads.
-func NewPrefix() S3Prefix {
-	u, err := uuid.NewRandom()
-	if err != nil {
-		panic(err)
-	}
-	return S3Prefix(u.String())
 }
 
 type UploadOutput struct {
@@ -110,7 +87,7 @@ func Upload(r io.Reader, fileName string) (output UploadOutput, err error) {
 	uploader := s3manager.NewUploader(sess)
 	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(path.Join(output.S3Prefix.String(), "data", fileName)),
+		Key:    aws.String(output.S3Prefix.FileDataKey(fileName)),
 		Body:   r,
 	})
 	// Synchronize with the piece generation.

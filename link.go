@@ -9,19 +9,14 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 )
 
+var s3BucketHttp = fmt.Sprintf("https://%s.s3-%s.amazonaws.com", bucket, region)
+
 func CreateLink(ih torrent.InfoHash, s3Prefix S3Prefix, filePath []string) string {
 	return metainfo.Magnet{
 		InfoHash:    ih,
 		DisplayName: path.Join(filePath...),
 		Params: url.Values{
-			"as": {
-				fmt.Sprintf(
-					"https://%s.s3-%s.amazonaws.com/%s",
-					bucket,
-					region,
-					s3Prefix.TorrentKey(),
-				),
-			},
+			"as": {fmt.Sprintf("%s/%s", s3BucketHttp, s3Prefix.TorrentKey())},
 			"xs": {(&url.URL{Scheme: "replica", Opaque: s3Prefix.String()}).String()},
 			// This might technically be more correct, but I couldn't find any torrent client that
 			// supports it. Make sure to change any assumptions about "xs" before changing it.
@@ -29,6 +24,9 @@ func CreateLink(ih torrent.InfoHash, s3Prefix S3Prefix, filePath []string) strin
 
 			// Since S3 key is provided, we know that it must be a single-file torrent.
 			"so": {"0"},
+			"ws": {
+				fmt.Sprintf("%s/%s", s3BucketHttp, s3Prefix.FileDataKey(path.Join(filePath...))),
+			},
 		},
 	}.String()
 }

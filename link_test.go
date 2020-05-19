@@ -19,6 +19,7 @@ func TestCreateLink(t *testing.T) {
 			"&as=https%3A%2F%2Fgetlantern-replica.s3-ap-southeast-1.amazonaws.com%2Fbig+long+uuid%2Fherp.txt%2Ftorrent"+
 			"&dn=nice+name"+
 			"&so=0"+ // Not sure if we can rely on the ordering of params, hope so.
+			"&ws=https%3A%2F%2Fgetlantern-replica.s3-ap-southeast-1.amazonaws.com%2Fbig+long+uuid%2Fherp.txt%2Fdata%2Fbig+long+uuid%2Fherp.txt%2Fnice+name"+
 			"&xs=replica%3Abig+long+uuid%2Fherp.txt", link)
 }
 
