@@ -152,18 +152,28 @@ func UploadFile(filename string) (UploadOutput, error) {
 }
 
 // DeleteFile deletes the S3 file with the given key.
-func DeletePrefix(s3Prefix S3Prefix) error {
+func DeletePrefix(s3Prefix S3Prefix, files ...[]string) []error {
 	sess, err := newSession()
 	if err != nil {
-		return fmt.Errorf("getting new session: %w", err)
+		return []error{fmt.Errorf("getting new session: %w", err)}
 	}
 	svc := s3.New(sess)
-	input := &s3.DeleteObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(s3Prefix.String() + "/"),
+	var errs []error
+	delete := func(key string) {
+		input := &s3.DeleteObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		}
+		_, err := svc.DeleteObject(input)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("deleting %q: %w", key, err))
+		}
 	}
-	_, err = svc.DeleteObject(input)
-	return err
+	delete(s3Prefix.TorrentKey())
+	for _, f := range files {
+		delete(s3Prefix.FileDataKey(path.Join(f...)))
+	}
+	return errs
 }
 
 // GetObjectTorrent returns the object metainfo for the given key.
