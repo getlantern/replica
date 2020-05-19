@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -31,11 +32,12 @@ func mainErr() error {
 		cmd.Action = func() {
 			checkAction(func() error {
 				for _, f := range *files {
-					key, err := replica.UploadFile(f)
+					output, err := replica.UploadFile(f)
 					if err != nil {
 						return err
 					}
-					log.Printf("uploaded to %q", key)
+					log.Printf("uploaded to %q", output.S3Prefix)
+					fmt.Printf("%s\n", replica.CreateLink(output.Metainfo.HashInfoBytes(), output.S3Prefix, output.Info.FilePath()))
 				}
 				return nil
 			}())

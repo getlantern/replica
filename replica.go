@@ -7,16 +7,17 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
+	"time"
 
 	_ "github.com/anacrolix/envpprof"
+	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"golang.org/x/xerrors"
-
-	"github.com/google/uuid"
 )
 
 func newSession() (*session.Session, error) {
@@ -31,58 +32,148 @@ func newSession() (*session.Session, error) {
 	})), nil
 }
 
-// NewPrefix creates a new random S3 key prefix to anonymize uploads.
-func NewPrefix() string {
-	u, err := uuid.NewRandom()
-	if err != nil {
-		panic(err)
-	}
-	return u.String()
-}
-
-// Upload uploads the specified reader data to the specified S3 key.
-func Upload(f io.Reader, s3Key string) error {
+// GetMetainfo retrieves the metainfo object for the given prefix from S3.
+func GetMetainfo(s3Prefix S3Prefix) (io.ReadCloser, error) {
 	sess, err := newSession()
 	if err != nil {
-		return xerrors.Errorf("Could not get session: %v", err)
+		return nil, fmt.Errorf("getting new session: %w", err)
 	}
+	cl := s3.New(sess)
+	out, err := cl.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(s3Prefix.TorrentKey()),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("getting s3 object: %w", err)
+	}
+	return out.Body, nil
+}
+
+type UploadOutput struct {
+	S3Prefix S3Prefix
+	Metainfo *metainfo.MetaInfo
+	Info     Info
+}
+
+// Upload creates a new Replica object from the Reader with the given name. Returns the objects S3 UUID
+// prefix.
+func Upload(r io.Reader, fileName string) (output UploadOutput, err error) {
+	sess, err := newSession()
+	if err != nil {
+		err = fmt.Errorf("getting aws session: %w", err)
+		return
+	}
+
+	piecesReader, piecesWriter := io.Pipe()
+	r = io.TeeReader(r, piecesWriter)
+
+	var cw CountWriter
+	r = io.TeeReader(r, &cw)
+	// 256 KiB is what s3 would use. We want to balance chunks per piece, metainfo size, and having
+	// too many pieces. This can be changed any time, since it only affects future metainfos.
+	const pieceLength = 1 << 18
+	var (
+		pieces     []byte
+		piecesErr  error
+		piecesDone = make(chan struct{})
+	)
+	go func() {
+		defer close(piecesDone)
+		pieces, piecesErr = metainfo.GeneratePieces(piecesReader, pieceLength, nil)
+	}()
+
+	// Whether we fail or not from this point, the prefix could be useful to the caller.
+	output.S3Prefix = NewPrefix()
 	uploader := s3manager.NewUploader(sess)
 	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(s3Key),
-		Body:   f,
+		Key:    aws.String(output.S3Prefix.FileDataKey(fileName)),
+		Body:   r,
 	})
+	// Synchronize with the piece generation.
+	piecesWriter.CloseWithError(err)
+	<-piecesDone
 	if err != nil {
-		return xerrors.Errorf("uploading to s3: %w", err)
+		err = fmt.Errorf("uploading to s3: %w", err)
+		return
 	}
-	return nil
+	if piecesErr != nil {
+		err = fmt.Errorf("generating metainfo pieces: %w", piecesErr)
+		return
+	}
+
+	output.Info.TorrentInfo = &metainfo.Info{
+		PieceLength: pieceLength,
+		Name:        output.S3Prefix.String(),
+		Pieces:      pieces,
+		Files: []metainfo.FileInfo{
+			{Length: cw.BytesWritten, Path: []string{fileName}},
+		},
+	}
+	infoBytes, err := bencode.Marshal(output.Info.TorrentInfo)
+	if err != nil {
+		panic(err)
+	}
+	output.Metainfo = &metainfo.MetaInfo{
+		InfoBytes:    infoBytes,
+		CreationDate: time.Now().Unix(),
+		Comment:      "Replica",
+	}
+	err = uploadMetainfo(output.S3Prefix, output.Metainfo, uploader)
+	if err != nil {
+		err = fmt.Errorf("uploading metainfo: %w", err)
+		return
+	}
+	return
 }
 
-// UploadFile uploads a file with the given name, creating a new key with
-// a generated prefix.
-func UploadFile(filename string) (string, error) {
+func uploadMetainfo(prefix S3Prefix, mi *metainfo.MetaInfo, uploader *s3manager.Uploader) error {
+	r, w := io.Pipe()
+	go func() {
+		err := mi.Write(w)
+		w.CloseWithError(err)
+	}()
+	_, err := uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(prefix.TorrentKey()),
+		Body:   r,
+	})
+	return err
+}
+
+// UploadFile uploads the file for the given name, returning the Replica UUID prefix for the upload.
+func UploadFile(filename string) (UploadOutput, error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		return "", xerrors.Errorf("opening file %q: %w", filename, err)
+		return UploadOutput{}, fmt.Errorf("opening file %q: %w", filename, err)
 	}
 	defer f.Close()
-	s3Key := path.Join(NewPrefix(), filepath.Base(filename))
-	return s3Key, Upload(f, s3Key)
+	return Upload(f, filepath.Base(filename))
 }
 
-// DeleteFile deletes the S3 file with the given key.
-func DeleteFile(s3key string) error {
+// DeletePrefix deletes the S3 file with the given key.
+func DeletePrefix(s3Prefix S3Prefix, files ...[]string) []error {
 	sess, err := newSession()
 	if err != nil {
-		return xerrors.Errorf("Could not get session: %v", err)
+		return []error{fmt.Errorf("getting new session: %w", err)}
 	}
 	svc := s3.New(sess)
-	input := &s3.DeleteObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(s3key),
+	var errs []error
+	delete := func(key string) {
+		input := &s3.DeleteObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		}
+		_, err := svc.DeleteObject(input)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("deleting %q: %w", key, err))
+		}
 	}
-	_, err = svc.DeleteObject(input)
-	return err
+	delete(s3Prefix.TorrentKey())
+	for _, f := range files {
+		delete(s3Prefix.FileDataKey(path.Join(f...)))
+	}
+	return errs
 }
 
 // GetObjectTorrent returns the object metainfo for the given key.
@@ -124,9 +215,13 @@ func GetTorrent(key string) error {
 }
 
 type IteredUpload struct {
-	*metainfo.MetaInfo
-	os.FileInfo
-	Err error
+	Metainfo *metainfo.MetaInfo
+	FileInfo os.FileInfo
+	Err      error
+}
+
+func (me *IteredUpload) S3Prefix() S3Prefix {
+	return S3Prefix(strings.TrimSuffix(me.FileInfo.Name(), filepath.Ext(me.FileInfo.Name())))
 }
 
 // IterUploads walks the torrent files stored in the directory.
@@ -145,7 +240,7 @@ func IterUploads(dir string, f func(IteredUpload)) error {
 			f(IteredUpload{Err: fmt.Errorf("loading metainfo from file %q: %w", p, err)})
 			continue
 		}
-		f(IteredUpload{MetaInfo: mi, FileInfo: e})
+		f(IteredUpload{Metainfo: mi, FileInfo: e})
 	}
 	return nil
 }
