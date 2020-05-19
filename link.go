@@ -41,5 +41,8 @@ func S3PrefixFromMagnet(m metainfo.Magnet) (S3Prefix, error) {
 	if u.Opaque != "" {
 		return S3Prefix(u.Opaque), nil
 	}
-	return S3Prefix(u.Path), nil
+	if u.Path != "" {
+		return S3Prefix(u.Path), nil
+	}
+	return "", fmt.Errorf("no s3 prefix in %q", u)
 }
