@@ -32,7 +32,7 @@ func newSession() (*session.Session, error) {
 	})), nil
 }
 
-// Retrieves the metainfo object for the given prefix from S3.
+// GetMetainfo retrieves the metainfo object for the given prefix from S3.
 func GetMetainfo(s3Prefix S3Prefix) (io.ReadCloser, error) {
 	sess, err := newSession()
 	if err != nil {
@@ -55,7 +55,7 @@ type UploadOutput struct {
 	Info     Info
 }
 
-// Creates a new Replica object from the Reader with the given name. Returns the objects S3 UUID
+// Upload creates a new Replica object from the Reader with the given name. Returns the objects S3 UUID
 // prefix.
 func Upload(r io.Reader, fileName string) (output UploadOutput, err error) {
 	sess, err := newSession()
@@ -151,7 +151,7 @@ func UploadFile(filename string) (UploadOutput, error) {
 	return Upload(f, filepath.Base(filename))
 }
 
-// DeleteFile deletes the S3 file with the given key.
+// DeletePrefix deletes the S3 file with the given key.
 func DeletePrefix(s3Prefix S3Prefix, files ...[]string) []error {
 	sess, err := newSession()
 	if err != nil {

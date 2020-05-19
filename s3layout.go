@@ -15,14 +15,14 @@ func NewPrefix() S3Prefix {
 	return S3Prefix(u.String())
 }
 
-// The UUID prefix used on S3 to group objects related to an upload.
+// S3Prefix is the UUID prefix used on S3 to group objects related to an upload.
 type S3Prefix string
 
 func (me S3Prefix) String() string {
 	return string(me)
 }
 
-// The key where the metainfo for the data directory should be stored.
+// TorrentKey returns the key where the metainfo for the data directory should be stored.
 func (me S3Prefix) TorrentKey() string {
 	return path.Join(string(me), "torrent")
 }
