@@ -16,7 +16,7 @@ func TestCreateLink(t *testing.T) {
 	link := CreateLink(infoHash, "big long uuid/herp.txt", []string{"nice name"})
 	require.EqualValues(t,
 		"magnet:?xt=urn:btih:deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee"+
-			"&as=https%3A%2F%2Fgetlantern-replica.s3-ap-southeast-1.amazonaws.com%2Fbig+long+uuid%2Fherp.txt%2Fdata%2Fnice+name"+
+			"&as=https%3A%2F%2Fgetlantern-replica.s3-ap-southeast-1.amazonaws.com%2Fbig+long+uuid%2Fherp.txt%2Ftorrent"+
 			"&dn=nice+name"+
 			"&so=0"+ // Not sure if we can rely on the ordering of params, hope so.
 			"&xs=replica%3Abig+long+uuid%2Fherp.txt", link)

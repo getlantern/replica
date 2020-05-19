@@ -16,9 +16,10 @@ func CreateLink(ih torrent.InfoHash, s3Prefix S3Prefix, filePath []string) strin
 		Params: url.Values{
 			"as": {
 				fmt.Sprintf(
-					"https://getlantern-replica.s3-ap-southeast-1.amazonaws.com/%s/data/%s",
-					s3Prefix,
-					path.Join(filePath...),
+					"https://%s.s3-%s.amazonaws.com/%s",
+					bucket,
+					region,
+					s3Prefix.TorrentKey(),
 				),
 			},
 			"xs": {(&url.URL{Scheme: "replica", Opaque: s3Prefix.String()}).String()},
