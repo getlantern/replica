@@ -31,6 +31,9 @@ func (me S3Prefix) DataKey() string {
 	return path.Join(string(me), "data")
 }
 
-func (me S3Prefix) FileDataKey(filePath string) string {
-	return path.Join(me.DataKey(), me.String(), filePath)
+func (me S3Prefix) FileDataKey(
+	// These are the path components per "github.com/anacrolix/torrent/metainfo".Info.Files.Path
+	filePathComps ...string,
+) string {
+	return path.Join(append([]string{me.DataKey(), me.String()}, filePathComps...)...)
 }
