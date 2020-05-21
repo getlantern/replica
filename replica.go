@@ -32,8 +32,7 @@ func newSession() (*session.Session, error) {
 	})), nil
 }
 
-// GetMetainfo retrieves the metainfo object for the given prefix from S3.
-func GetMetainfo(s3Prefix S3Prefix) (io.ReadCloser, error) {
+func GetObject(key string) (io.ReadCloser, error) {
 	sess, err := newSession()
 	if err != nil {
 		return nil, fmt.Errorf("getting new session: %w", err)
@@ -41,12 +40,18 @@ func GetMetainfo(s3Prefix S3Prefix) (io.ReadCloser, error) {
 	cl := s3.New(sess)
 	out, err := cl.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(s3Prefix.TorrentKey()),
+		Key:    aws.String(key),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("getting s3 object: %w", err)
 	}
 	return out.Body, nil
+
+}
+
+// GetMetainfo retrieves the metainfo object for the given prefix from S3.
+func GetMetainfo(s3Prefix S3Prefix) (io.ReadCloser, error) {
+	return GetObject(s3Prefix.TorrentKey())
 }
 
 type UploadOutput struct {
