@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -20,7 +21,28 @@ import (
 	"golang.org/x/xerrors"
 )
 
-func newSession() (*session.Session, error) {
+// Replica is the interface for files posted to Replica.
+type Replica interface {
+	UploadFile(filename string) (UploadOutput, error)
+	GetTorrent(key string) error
+	IterUploads(dir string, f func(IteredUpload)) error
+	Upload(ior io.Reader, fileName string) (output UploadOutput, err error)
+	DeletePrefix(s3Prefix S3Prefix, files ...[]string) []error
+	GetMetainfo(s3Prefix S3Prefix) (io.ReadCloser, error)
+}
+
+type replica struct {
+	httpClient *http.Client
+}
+
+// New creates a new Replica instance with the specified http client.
+func New(httpClient *http.Client) Replica {
+	return &replica{
+		httpClient: httpClient,
+	}
+}
+
+func (r *replica) newSession() (*session.Session, error) {
 	creds, err := creds.getCredentials()
 	if err != nil {
 		return nil, xerrors.Errorf("could not get creds: %v", err)
@@ -32,8 +54,8 @@ func newSession() (*session.Session, error) {
 	})), nil
 }
 
-func GetObject(key string) (io.ReadCloser, error) {
-	sess, err := newSession()
+func (r *replica) GetObject(key string) (io.ReadCloser, error) {
+	sess, err := r.newSession()
 	if err != nil {
 		return nil, fmt.Errorf("getting new session: %w", err)
 	}
@@ -50,8 +72,8 @@ func GetObject(key string) (io.ReadCloser, error) {
 }
 
 // GetMetainfo retrieves the metainfo object for the given prefix from S3.
-func GetMetainfo(s3Prefix S3Prefix) (io.ReadCloser, error) {
-	return GetObject(s3Prefix.TorrentKey())
+func (r *replica) GetMetainfo(s3Prefix S3Prefix) (io.ReadCloser, error) {
+	return r.GetObject(s3Prefix.TorrentKey())
 }
 
 type UploadOutput struct {
@@ -62,18 +84,18 @@ type UploadOutput struct {
 
 // Upload creates a new Replica object from the Reader with the given name. Returns the objects S3 UUID
 // prefix.
-func Upload(r io.Reader, fileName string) (output UploadOutput, err error) {
-	sess, err := newSession()
+func (r *replica) Upload(read io.Reader, fileName string) (output UploadOutput, err error) {
+	sess, err := r.newSession()
 	if err != nil {
 		err = fmt.Errorf("getting aws session: %w", err)
 		return
 	}
 
 	piecesReader, piecesWriter := io.Pipe()
-	r = io.TeeReader(r, piecesWriter)
+	read = io.TeeReader(read, piecesWriter)
 
 	var cw CountWriter
-	r = io.TeeReader(r, &cw)
+	read = io.TeeReader(read, &cw)
 	// 256 KiB is what s3 would use. We want to balance chunks per piece, metainfo size, and having
 	// too many pieces. This can be changed any time, since it only affects future metainfos.
 	const pieceLength = 1 << 18
@@ -93,7 +115,7 @@ func Upload(r io.Reader, fileName string) (output UploadOutput, err error) {
 	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(output.S3Prefix.FileDataKey(fileName)),
-		Body:   r,
+		Body:   read,
 	})
 	// Synchronize with the piece generation.
 	piecesWriter.CloseWithError(err)
@@ -147,18 +169,18 @@ func uploadMetainfo(prefix S3Prefix, mi *metainfo.MetaInfo, uploader *s3manager.
 }
 
 // UploadFile uploads the file for the given name, returning the Replica UUID prefix for the upload.
-func UploadFile(filename string) (UploadOutput, error) {
+func (r *replica) UploadFile(filename string) (UploadOutput, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return UploadOutput{}, fmt.Errorf("opening file %q: %w", filename, err)
 	}
 	defer f.Close()
-	return Upload(f, filepath.Base(filename))
+	return r.Upload(f, filepath.Base(filename))
 }
 
 // DeletePrefix deletes the S3 file with the given key.
-func DeletePrefix(s3Prefix S3Prefix, files ...[]string) []error {
-	sess, err := newSession()
+func (r *replica) DeletePrefix(s3Prefix S3Prefix, files ...[]string) []error {
+	sess, err := r.newSession()
 	if err != nil {
 		return []error{fmt.Errorf("getting new session: %w", err)}
 	}
@@ -182,8 +204,8 @@ func DeletePrefix(s3Prefix S3Prefix, files ...[]string) []error {
 }
 
 // GetObjectTorrent returns the object metainfo for the given key.
-func GetObjectTorrent(key string) (io.ReadCloser, error) {
-	sess, err := newSession()
+func (r *replica) GetObjectTorrent(key string) (io.ReadCloser, error) {
+	sess, err := r.newSession()
 	if err != nil {
 		return nil, xerrors.Errorf("Could not get session: %v", err)
 	}
@@ -199,8 +221,8 @@ func GetObjectTorrent(key string) (io.ReadCloser, error) {
 }
 
 // GetTorrent downloads the metainfo for the Replica object to a .torrent file in the current working directory.
-func GetTorrent(key string) error {
-	t, err := GetObjectTorrent(key)
+func (r *replica) GetTorrent(key string) error {
+	t, err := r.GetObjectTorrent(key)
 	if err != nil {
 		return xerrors.Errorf("getting object torrent: %w", err)
 	}
@@ -230,7 +252,7 @@ func (me *IteredUpload) S3Prefix() S3Prefix {
 }
 
 // IterUploads walks the torrent files stored in the directory.
-func IterUploads(dir string, f func(IteredUpload)) error {
+func (r *replica) IterUploads(dir string, f func(IteredUpload)) error {
 	entries, err := ioutil.ReadDir(dir)
 	if os.IsNotExist(err) {
 		return nil
