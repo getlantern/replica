@@ -1,6 +1,7 @@
 package replica
 
 import (
+	"fmt"
 	"path"
 
 	"github.com/google/uuid"
@@ -36,4 +37,8 @@ func (me S3Prefix) FileDataKey(
 	filePathComps ...string,
 ) string {
 	return path.Join(append([]string{me.DataKey(), me.String()}, filePathComps...)...)
+}
+
+func (me S3Prefix) WebseedUrl() string {
+	return fmt.Sprintf("%s/%s/", s3BucketHttp, me.DataKey())
 }
