@@ -146,6 +146,7 @@ func (r *replica) Upload(read io.Reader, fileName string) (output UploadOutput, 
 		InfoBytes:    infoBytes,
 		CreationDate: time.Now().Unix(),
 		Comment:      "Replica",
+		UrlList:      []string{output.S3Prefix.WebseedUrl()},
 	}
 	err = uploadMetainfo(output.S3Prefix, output.Metainfo, uploader)
 	if err != nil {

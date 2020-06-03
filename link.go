@@ -24,9 +24,7 @@ func CreateLink(ih torrent.InfoHash, s3Prefix S3Prefix, filePath []string) strin
 
 			// Since S3 key is provided, we know that it must be a single-file torrent.
 			"so": {"0"},
-			"ws": {
-				fmt.Sprintf("%s/%s/", s3BucketHttp, s3Prefix.DataKey()),
-			},
+			"ws": {s3Prefix.WebseedUrl()},
 		},
 	}.String()
 }
