@@ -9,7 +9,7 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 )
 
-var s3BucketHttp = fmt.Sprintf("https://%s.s3-%s.amazonaws.com", bucket, region)
+var s3BucketHttp = fmt.Sprintf("https://s3.%s.amazonaws.com/%s", region, bucket)
 
 func CreateLink(ih torrent.InfoHash, s3Prefix S3Prefix, filePath []string) string {
 	return metainfo.Magnet{

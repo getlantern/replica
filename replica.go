@@ -49,9 +49,10 @@ func (r *replica) newSession() (*session.Session, error) {
 	}
 
 	return session.Must(session.NewSession(&aws.Config{
-		Credentials: creds,
-		Region:      aws.String(region),
-		HTTPClient:  r.httpClient,
+		Credentials:      creds,
+		Region:           aws.String(region),
+		HTTPClient:       r.httpClient,
+		S3ForcePathStyle: aws.Bool(true),
 	})), nil
 }
 
