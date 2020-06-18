@@ -10,14 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/cognitoidentity"
 )
 
-var creds = &cognitoProvider{}
-
-const (
-	bucket = "getlantern-replica"
-	region = "ap-southeast-1"
-)
-
 type cognitoProvider struct {
+	IdentityPoolId *string
+	SessionRegion  string
 	credentials.Expiry
 	value credentials.Value
 	sync.Mutex
@@ -27,10 +22,24 @@ func (cp *cognitoProvider) Retrieve() (credentials.Value, error) {
 	return cp.value, nil
 }
 
+func (cp *cognitoProvider) identityPoolId() *string {
+	if cp.IdentityPoolId != nil {
+		return cp.IdentityPoolId
+	}
+	return aws.String("ap-southeast-1:0b509375-33f5-43f8-97c3-8ee7db4c5c14")
+}
+
+func (cp *cognitoProvider) sessionRegion() string {
+	if cp.SessionRegion == "" {
+		return DefaultEndpoint.AwsRegion
+	}
+	return cp.SessionRegion
+}
+
 func (cp *cognitoProvider) newCredentials() (*cognitoidentity.Credentials, error) {
-	svc := cognitoidentity.New(session.New(), aws.NewConfig().WithRegion(region))
+	svc := cognitoidentity.New(session.New(), aws.NewConfig().WithRegion(cp.sessionRegion()))
 	idRes, err := svc.GetId(&cognitoidentity.GetIdInput{
-		IdentityPoolId: aws.String("ap-southeast-1:0b509375-33f5-43f8-97c3-8ee7db4c5c14"),
+		IdentityPoolId: cp.identityPoolId(),
 	})
 
 	if err != nil {
@@ -43,11 +52,11 @@ func (cp *cognitoProvider) newCredentials() (*cognitoidentity.Credentials, error
 	return credRes.Credentials, nil
 }
 
-func (cp *cognitoProvider) getCredentials() (*credentials.Credentials, error) {
+func (creds *cognitoProvider) getCredentials() (*credentials.Credentials, error) {
 	creds.Lock()
 	defer creds.Unlock()
 	if creds.IsExpired() {
-		if cr, err := cp.newCredentials(); err != nil {
+		if cr, err := creds.newCredentials(); err != nil {
 			return nil, err
 		} else {
 			creds.value = credentials.Value{
