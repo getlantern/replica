@@ -218,7 +218,7 @@ func (r *Endpoint) IterUploads(dir string, f func(IteredUpload)) error {
 		var umi UploadMetainfo
 		err = umi.FromTorrentMetainfo(mi)
 		if err != nil {
-			f(IteredUpload{Err: fmt.Errorf("unwrapping upload metainfo: %w", err)})
+			f(IteredUpload{Err: fmt.Errorf("unwrapping upload metainfo from file %q: %w", p, err)})
 			continue
 		}
 		f(IteredUpload{Metainfo: umi, FileInfo: e})
