@@ -31,7 +31,7 @@ var DefaultEndpoint = Endpoint{
 	AwsRegion:  "ap-southeast-1",
 }
 
-func (r *Client) newSession() (*session.Session, error) {
+func (r *Client) newSession(region string) (*session.Session, error) {
 	creds, err := r.creds.getCredentials()
 	if err != nil {
 		return nil, xerrors.Errorf("could not get creds: %v", err)
@@ -39,20 +39,20 @@ func (r *Client) newSession() (*session.Session, error) {
 
 	return session.Must(session.NewSession(&aws.Config{
 		Credentials:      creds,
-		Region:           aws.String(r.AwsRegion),
+		Region:           aws.String(region),
 		HTTPClient:       r.HttpClient,
 		S3ForcePathStyle: aws.Bool(true),
 	})), nil
 }
 
-func (r *Client) GetObject(key string) (io.ReadCloser, error) {
-	sess, err := r.newSession()
+func (r *Client) GetObject(key string, endpoint Endpoint) (io.ReadCloser, error) {
+	sess, err := r.newSession(endpoint.AwsRegion)
 	if err != nil {
 		return nil, fmt.Errorf("getting new session: %w", err)
 	}
 	cl := s3.New(sess)
 	out, err := cl.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(r.BucketName),
+		Bucket: aws.String(endpoint.BucketName),
 		Key:    aws.String(key),
 	})
 	if err != nil {
@@ -64,7 +64,7 @@ func (r *Client) GetObject(key string) (io.ReadCloser, error) {
 
 // GetMetainfo retrieves the metainfo object for the given prefix from S3.
 func (r *Client) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
-	return r.GetObject(s3Prefix.TorrentKey())
+	return r.GetObject(s3Prefix.TorrentKey(), s3Prefix.Endpoint)
 }
 
 type UploadOutput struct {
@@ -74,7 +74,7 @@ type UploadOutput struct {
 // Upload creates a new Replica object from the Reader with the given name. Returns the objects S3 UUID
 // prefix.
 func (r *Client) Upload(read io.Reader, fileName string) (output UploadOutput, err error) {
-	sess, err := r.newSession()
+	sess, err := r.newSession(r.AwsRegion)
 	if err != nil {
 		err = fmt.Errorf("getting aws session: %w", err)
 		return
@@ -170,7 +170,7 @@ func (r *Client) UploadFile(filename string) (UploadOutput, error) {
 
 // Deletes the S3 file with the given key.
 func (r *Client) DeleteUpload(upload Upload, files ...[]string) []error {
-	sess, err := r.newSession()
+	sess, err := r.newSession(upload.AwsRegion)
 	if err != nil {
 		return []error{fmt.Errorf("getting new session: %w", err)}
 	}

@@ -54,7 +54,7 @@ func mainErr() error {
 		cmd.Action = func() {
 			checkAction(func() error {
 				uuid, _ := uuid.Parse(*name)
-				obj, err := replicaClient.GetObject(replica.UploadPrefix{uuid}.TorrentKey())
+				obj, err := replicaClient.GetObject(replica.UploadPrefix{uuid}.TorrentKey(), replicaClient.Endpoint)
 				if err != nil {
 					return err
 				}
