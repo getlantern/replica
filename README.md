@@ -46,6 +46,7 @@ It can compile a binary which will currently let you upload replica content (and
 title Replica
 Replica Search->S3: List Objects
 S3->Replica Search: All current replica files
+note over Replica Search: Build in-memory index of content
 Magnetico->Bittorrent DHT: Crawl bittorrent DHT
 note over Magnetico: Populate sqlite db
 Desktop UI->Flashlight: Upload file
@@ -53,6 +54,7 @@ note over Flashlight: Create torrent contents
 Flashlight->S3: Upload content and .torrent file
 S3->SNS&SQS: New object notification
 SNS&SQS->Replica Search: New object notification
+note over Replica Search: Add object to index
 opt proxied and domain fronted
     Desktop UI->Replica Search: Search for replica contents
 end
