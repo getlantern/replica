@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 
+	"github.com/google/uuid"
 	cli "github.com/jawher/mow.cli"
 
 	"github.com/getlantern/replica"
@@ -27,18 +29,20 @@ func checkAction(err error) {
 
 func mainErr() error {
 	app := cli.App("replica", "Lantern Replica functions")
-	rep := replica.New(nil)
+	replicaClient := replica.Client{
+		Endpoint: replica.DefaultEndpoint,
+	}
 	app.Command("upload", "uploads a file to S3 and returns the S3 key", func(cmd *cli.Cmd) {
 		files := cmd.StringsArg("FILE", nil, "file to upload")
 		cmd.Action = func() {
 			checkAction(func() error {
 				for _, f := range *files {
-					output, err := rep.UploadFile(f)
+					output, err := replicaClient.UploadFile(f)
 					if err != nil {
 						return err
 					}
-					log.Printf("uploaded to %q", output.S3Prefix)
-					fmt.Printf("%s\n", replica.CreateLink(output.Metainfo.HashInfoBytes(), output.S3Prefix, output.Info.FilePath()))
+					log.Printf("uploaded to %q", output.Upload)
+					fmt.Printf("%s\n", replica.CreateLink(output.HashInfoBytes(), output.Upload, output.FilePath()))
 				}
 				return nil
 			}())
@@ -47,7 +51,18 @@ func mainErr() error {
 	})
 	app.Command("get-torrent", "retrieve BitTorrent metainfo for a Replica S3 key", func(cmd *cli.Cmd) {
 		name := cmd.StringArg("NAME", "", "Replica S3 object name")
-		cmd.Action = func() { checkAction(rep.GetTorrent(*name)) }
+		cmd.Action = func() {
+			checkAction(func() error {
+				uuid, _ := uuid.Parse(*name)
+				obj, err := replicaClient.GetObject(replica.UploadPrefix{uuid}.TorrentKey(), replicaClient.Endpoint)
+				if err != nil {
+					return err
+				}
+				defer obj.Close()
+				_, err = io.Copy(os.Stdout, obj)
+				return err
+			}())
+		}
 	})
 	app.Command("open-torrent", "open torrent contents", func(cmd *cli.Cmd) {
 		file := cmd.StringArg("FILE", "", "torrent to open")

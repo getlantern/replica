@@ -6,6 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestExpired(t *testing.T) {
-	assert.True(t, creds.IsExpired())
+func TestCredsStartExpired(t *testing.T) {
+	assert.True(t, new(cognitoProvider).IsExpired())
 }

@@ -2,6 +2,7 @@ package replica
 
 import (
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/anacrolix/torrent"
@@ -13,14 +14,20 @@ func TestCreateLink(t *testing.T) {
 	const infoHashHex = "deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee"
 	var infoHash torrent.InfoHash
 	require.NoError(t, infoHash.FromHexString(infoHashHex))
-	link := CreateLink(infoHash, "big long uuid/herp.txt", []string{"nice name"})
+	upload := DefaultEndpoint.NewUpload()
+	link := CreateLink(infoHash, upload, []string{"nice name"})
+	uuidString := upload.UUID.String()
 	require.EqualValues(t,
-		"magnet:?xt=urn:btih:deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee"+
-			"&as=https%3A%2F%2Fs3.ap-southeast-1.amazonaws.com%2Fgetlantern-replica%2Fbig+long+uuid%2Fherp.txt%2Ftorrent"+
-			"&dn=nice+name"+
-			"&so=0"+ // Not sure if we can rely on the ordering of params, hope so.
-			"&ws=https%3A%2F%2Fs3.ap-southeast-1.amazonaws.com%2Fgetlantern-replica%2Fbig+long+uuid%2Fherp.txt%2Fdata%2F"+
-			"&xs=replica%3Abig+long+uuid%2Fherp.txt", link)
+		[]string{
+			"magnet:?xt=urn:btih:deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee",
+			"as=https%3A%2F%2Fgetlantern-replica.s3.ap-southeast-1.amazonaws.com%2F" + uuidString + "%2Ftorrent",
+			"as=https%3A%2F%2Fs3.ap-southeast-1.amazonaws.com%2Fgetlantern-replica%2F" + uuidString + "%2Ftorrent",
+			"dn=nice+name",
+			"so=0", // Not sure if we can rely on the ordering of params, hope so.
+			"ws=https%3A%2F%2Fgetlantern-replica.s3.ap-southeast-1.amazonaws.com%2F" + uuidString + "%2Fdata%2F",
+			"ws=https%3A%2F%2Fs3.ap-southeast-1.amazonaws.com%2Fgetlantern-replica%2F" + uuidString + "%2Fdata%2F",
+			"xs=replica%3A" + uuidString + "%3Fbucket%3Dgetlantern-replica%26region%3Dap-southeast-1",
+		}, strings.Split(link, "&"))
 }
 
 // This is to check that s3KeyFromMagnet doesn't return an error if there's no replica xs parameter.
@@ -28,9 +35,8 @@ func TestCreateLink(t *testing.T) {
 func TestS3PrefixFromMagnetMissingXs(t *testing.T) {
 	m, err := metainfo.ParseMagnetURI("magnet:?xt=urn:btih:b84d0051d6cc64eb48bf8c47dd44320f69c17544&dn=Test+Drive+Unlimited+ReincarnaTion%2FTest+Drive+Unlimited+ReincarnaTion.exe&so=0")
 	require.NoError(t, err)
-	s3Key, err := S3PrefixFromMagnet(m)
+	err = new(Upload).FromMagnet(m)
 	require.Error(t, err)
-	require.EqualValues(t, "", s3Key)
 }
 
 // This is to check that s3KeyFromMagnet doesn't return an error if there's no replica xs parameter.
@@ -40,7 +46,8 @@ func TestS3KeyFromReplicaMagnetOpaqueKey(t *testing.T) {
 	require.NoError(t, err)
 	u, _ := url.Parse(m.Params.Get("xs"))
 	t.Logf("%#v", u)
-	s3Key, err := S3PrefixFromMagnet(m)
+	var s3Key Upload
+	err = s3Key.FromMagnet(m)
 	require.NoError(t, err)
-	require.EqualValues(t, "4cfacbd0-811c-4319-9d57-87c484c14814", s3Key)
+	require.EqualValues(t, "4cfacbd0-811c-4319-9d57-87c484c14814", s3Key.UUID.String())
 }

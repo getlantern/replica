@@ -9,38 +9,34 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 )
 
-var s3BucketHttp = fmt.Sprintf("https://s3.%s.amazonaws.com/%s", region, bucket)
+func (r *Endpoint) rootUrls() []string {
+	return []string{
+		// Virtual-hosted-style
+		fmt.Sprintf("https://%s.s3.%s.amazonaws.com", r.BucketName, r.AwsRegion),
+		// Path-style
+		fmt.Sprintf("https://s3.%s.amazonaws.com/%s", r.AwsRegion, r.BucketName),
+	}
+}
 
-func CreateLink(ih torrent.InfoHash, s3Prefix S3Prefix, filePath []string) string {
+func CreateLink(ih torrent.InfoHash, s3upload Upload, filePath []string) string {
 	return metainfo.Magnet{
 		InfoHash:    ih,
 		DisplayName: path.Join(filePath...),
 		Params: url.Values{
-			"as": {fmt.Sprintf("%s/%s", s3BucketHttp, s3Prefix.TorrentKey())},
-			"xs": {(&url.URL{Scheme: "replica", Opaque: s3Prefix.String()}).String()},
+			"as": s3upload.MetainfoUrls(),
+			"xs": {s3upload.ExactSource()},
 			// This might technically be more correct, but I couldn't find any torrent client that
 			// supports it. Make sure to change any assumptions about "xs" before changing it.
-			//"xs": {fmt.Sprintf("https://getlantern-replica.s3-ap-southeast-1.amazonaws.com/%s/torrent", s3Prefix)},
+			//"xs": {fmt.Sprintf("https://getlantern-replica.s3-ap-southeast-1.amazonaws.com/%s/torrent", s3upload)},
 
 			// Since S3 key is provided, we know that it must be a single-file torrent.
 			"so": {"0"},
-			"ws": {s3Prefix.WebseedUrl()},
+			"ws": s3upload.WebseedUrls(),
 		},
 	}.String()
 }
 
 // See CreateLink.
-func S3PrefixFromMagnet(m metainfo.Magnet) (S3Prefix, error) {
-	// url.Parse("") doesn't return an error! (which is currently what we want here).
-	u, err := url.Parse(m.Params.Get("xs"))
-	if err != nil {
-		return "", err
-	}
-	if u.Opaque != "" {
-		return S3Prefix(u.Opaque), nil
-	}
-	if u.Path != "" {
-		return S3Prefix(u.Path), nil
-	}
-	return "", fmt.Errorf("no s3 prefix in %q", u)
+func (upload *Upload) FromMagnet(m metainfo.Magnet) error {
+	return upload.FromExactSource(m.Params.Get("xs"))
 }
