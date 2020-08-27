@@ -33,7 +33,7 @@ func (me *UploadMetainfo) FromTorrentMetainfo(mi *metainfo.MetaInfo) error {
 			return fmt.Errorf("parsing uuid from info name: %w", err)
 		}
 		me.Upload = Upload{
-			UploadPrefix: UploadPrefix{u},
+			UploadPrefix: UploadPrefix{UUIDPrefix{u}},
 			Endpoint:     DefaultEndpoint,
 		}
 		return nil

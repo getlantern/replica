@@ -33,28 +33,39 @@ func mainErr() error {
 		Endpoint: replica.DefaultEndpoint,
 	}
 	app.Command("upload", "uploads a file to S3 and returns the S3 key", func(cmd *cli.Cmd) {
-		files := cmd.StringsArg("FILE", nil, "file to upload")
+		file := cmd.StringArg("FILE", "", "file to upload")
+		provider := cmd.StringOpt("p provider", "", "Replica content provider name")
+		id := cmd.StringOpt("i id", "", "Replica content provider id")
 		cmd.Action = func() {
 			checkAction(func() error {
-				for _, f := range *files {
-					output, err := replicaClient.UploadFile(f)
-					if err != nil {
-						return err
+				var uConfig replica.UploadConfig
+				if *id != "" && *provider != "" {
+					uConfig = &replica.ProviderUploadConfig{
+						File:     *file,
+						Provider: *provider,
+						ID:       *id,
 					}
-					log.Printf("uploaded to %q", output.Upload)
-					fmt.Printf("%s\n", replica.CreateLink(output.HashInfoBytes(), output.Upload, output.FilePath()))
+				} else {
+					uConfig = replica.NewUUIDUploadConfig(*file)
 				}
+
+				output, err := replicaClient.UploadFile(uConfig)
+				if err != nil {
+					return err
+				}
+				log.Printf("uploaded to %q", output.Upload)
+				fmt.Printf("%s\n", replica.CreateLink(output.HashInfoBytes(), output.Upload, output.FilePath()))
 				return nil
 			}())
 		}
-		cmd.Spec = "FILE..."
+		cmd.Spec = "[-i -p] FILE"
 	})
 	app.Command("get-torrent", "retrieve BitTorrent metainfo for a Replica S3 key", func(cmd *cli.Cmd) {
 		name := cmd.StringArg("NAME", "", "Replica S3 object name")
 		cmd.Action = func() {
 			checkAction(func() error {
 				uuid, _ := uuid.Parse(*name)
-				obj, err := replicaClient.GetObject(replica.UploadPrefix{uuid}.TorrentKey(), replicaClient.Endpoint)
+				obj, err := replicaClient.GetObject(replica.UploadPrefix{replica.UUIDPrefix{uuid}}.TorrentKey(), replicaClient.Endpoint)
 				if err != nil {
 					return err
 				}

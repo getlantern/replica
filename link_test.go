@@ -13,10 +13,11 @@ import (
 func TestCreateLink(t *testing.T) {
 	const infoHashHex = "deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee"
 	var infoHash torrent.InfoHash
+	filename := "nice name"
 	require.NoError(t, infoHash.FromHexString(infoHashHex))
-	upload := DefaultEndpoint.NewUpload()
+	upload := DefaultEndpoint.NewUpload(NewUUIDUploadConfig(filename))
 	link := CreateLink(infoHash, upload, []string{"nice name"})
-	uuidString := upload.UUID.String()
+	uuidString := upload.String()
 	require.EqualValues(t,
 		[]string{
 			"magnet:?xt=urn:btih:deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee",
@@ -49,5 +50,5 @@ func TestS3KeyFromReplicaMagnetOpaqueKey(t *testing.T) {
 	var s3Key Upload
 	err = s3Key.FromMagnet(m)
 	require.NoError(t, err)
-	require.EqualValues(t, "4cfacbd0-811c-4319-9d57-87c484c14814", s3Key.UUID.String())
+	require.EqualValues(t, "4cfacbd0-811c-4319-9d57-87c484c14814", s3Key.String())
 }

@@ -1,20 +1,16 @@
 package replica
 
-import "github.com/google/uuid"
-
 type Endpoint struct {
 	BucketName string
 	AwsRegion  string
 }
 
-// NewUpload creates a new random S3 key prefix to anonymize uploads.
-func (r Endpoint) NewUpload() Upload {
-	u, err := uuid.NewRandom()
-	if err != nil {
-		panic(err)
-	}
+// NewUpload creates a new random uuid or provider+id S3 key prefix to anonymize uploads.
+func (r Endpoint) NewUpload(uConfig UploadConfig) Upload {
+	uPrefix := uConfig.GetPrefix()
+
 	return Upload{
-		UploadPrefix: UploadPrefix{u},
+		UploadPrefix: uPrefix,
 		Endpoint:     r,
 	}
 }

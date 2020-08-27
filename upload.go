@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Upload is the UUID prefix used on S3 to group objects related to an upload.
+// Upload is the UUID or provider+id prefix used on S3 to group objects related to an upload.
 type Upload struct {
 	UploadPrefix
 	Endpoint
@@ -25,7 +25,7 @@ func (me *Upload) FromExactSource(s string) error {
 	}
 	query := u.Query()
 	*me = Upload{
-		UploadPrefix: UploadPrefix{uuid},
+		UploadPrefix: UploadPrefix{UUIDPrefix{uuid}},
 		Endpoint: Endpoint{
 			BucketName: query.Get("bucket"),
 			AwsRegion:  query.Get("region"),
@@ -60,7 +60,7 @@ func (me Upload) MetainfoUrls() []string {
 func (me Upload) ExactSource() string {
 	return (&url.URL{
 		Scheme: "replica",
-		Opaque: me.UUID.String(),
+		Opaque: me.UploadPrefix.String(),
 		RawQuery: url.Values{
 			"bucket": {me.BucketName},
 			"region": {me.AwsRegion},

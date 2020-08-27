@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/google/uuid"
 	"golang.org/x/xerrors"
 )
 
@@ -71,9 +72,62 @@ type UploadOutput struct {
 	UploadMetainfo
 }
 
-// Upload creates a new Replica object from the Reader with the given name. Returns the objects S3 UUID
-// prefix.
-func (r *Client) Upload(read io.Reader, fileName string) (output UploadOutput, err error) {
+// UploadConfig provides config information for the upload
+type UploadConfig interface {
+	Filename() string
+	FullPath() string
+	GetPrefix() UploadPrefix
+}
+
+type ProviderUploadConfig struct {
+	File     string
+	Provider string
+	ID       string
+}
+
+func (pc *ProviderUploadConfig) FullPath() string {
+	return pc.File
+}
+
+func (pc *ProviderUploadConfig) Filename() string {
+	return filepath.Base(pc.File)
+}
+
+func (pc *ProviderUploadConfig) GetPrefix() UploadPrefix {
+	return UploadPrefix{ProviderPrefix{
+		provider: pc.Provider,
+		id:       pc.ID,
+	}}
+}
+
+func (me *ProviderUploadConfig) UpdateFilename(f string) {
+	me.File = f
+}
+
+type uuidUploadConfig struct {
+	File string
+	uuid uuid.UUID
+}
+
+func NewUUIDUploadConfig(f string) *uuidUploadConfig {
+	u := uuid.New()
+	return &uuidUploadConfig{File: f, uuid: u}
+}
+
+func (uc *uuidUploadConfig) FullPath() string {
+	return uc.File
+}
+
+func (uc *uuidUploadConfig) Filename() string {
+	return filepath.Base(uc.File)
+}
+
+func (uc *uuidUploadConfig) GetPrefix() UploadPrefix {
+	return UploadPrefix{UUIDPrefix{uc.uuid}}
+}
+
+// Upload creates a new Replica object from the Reader with the given name. Returns the replica magnet link
+func (r *Client) Upload(read io.Reader, uConfig UploadConfig) (output UploadOutput, err error) {
 	sess, err := r.newSession(r.AwsRegion)
 	if err != nil {
 		err = fmt.Errorf("getting aws session: %w", err)
@@ -99,11 +153,11 @@ func (r *Client) Upload(read io.Reader, fileName string) (output UploadOutput, e
 	}()
 
 	// Whether we fail or not from this point, the prefix could be useful to the caller.
-	output.Upload = r.NewUpload()
+	output.Upload = r.NewUpload(uConfig)
 	uploader := s3manager.NewUploader(sess)
 	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(r.BucketName),
-		Key:    aws.String(output.FileDataKey(fileName)),
+		Key:    aws.String(output.FileDataKey(uConfig.Filename())),
 		Body:   read,
 	})
 	// Synchronize with the piece generation.
@@ -123,7 +177,7 @@ func (r *Client) Upload(read io.Reader, fileName string) (output UploadOutput, e
 		Name:        output.Upload.String(),
 		Pieces:      pieces,
 		Files: []metainfo.FileInfo{
-			{Length: cw.BytesWritten, Path: []string{fileName}},
+			{Length: cw.BytesWritten, Path: []string{uConfig.Filename()}},
 		},
 	}
 	infoBytes, err := bencode.Marshal(output.Info)
@@ -158,14 +212,14 @@ func uploadMetainfo(prefix Upload, mi *metainfo.MetaInfo, uploader *s3manager.Up
 	return err
 }
 
-// UploadFile uploads the file for the given name, returning the Replica UUID prefix for the upload.
-func (r *Client) UploadFile(filename string) (UploadOutput, error) {
-	f, err := os.Open(filename)
+// UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
+func (r *Client) UploadFile(uConfig UploadConfig) (UploadOutput, error) {
+	f, err := os.Open(uConfig.FullPath())
 	if err != nil {
-		return UploadOutput{}, fmt.Errorf("opening file %q: %w", filename, err)
+		return UploadOutput{}, fmt.Errorf("opening file %q: %w", uConfig.FullPath(), err)
 	}
 	defer f.Close()
-	return r.Upload(f, filepath.Base(filename))
+	return r.Upload(f, uConfig)
 }
 
 // Deletes the S3 file with the given key.
