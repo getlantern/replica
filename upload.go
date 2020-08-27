@@ -38,7 +38,7 @@ func (me Upload) FileDataKey(
 	// These are the path components per "github.com/anacrolix/torrent/metainfo".Info.Files.Path
 	filePathComps ...string,
 ) string {
-	return path.Join(append([]string{me.DataKey(), me.String()}, filePathComps...)...)
+	return path.Join(append([]string{me.DataKey(), me.PrefixString()}, filePathComps...)...)
 }
 
 func (me Upload) mapAppendRootUrls(suffix string) (ret []string) {
