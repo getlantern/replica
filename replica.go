@@ -80,9 +80,9 @@ type UploadConfig interface {
 }
 
 type ProviderUploadConfig struct {
-	File     string
-	Provider string
-	ID       string
+	File       string
+	ProviderID string
+	Name       string
 }
 
 func (pc *ProviderUploadConfig) FullPath() string {
@@ -90,36 +90,38 @@ func (pc *ProviderUploadConfig) FullPath() string {
 }
 
 func (pc *ProviderUploadConfig) Filename() string {
+	if pc.Name != "" {
+		return pc.Name
+	}
 	return filepath.Base(pc.File)
 }
 
 func (pc *ProviderUploadConfig) GetPrefix() UploadPrefix {
 	return UploadPrefix{ProviderPrefix{
-		provider: pc.Provider,
-		id:       pc.ID,
+		providerID: pc.ProviderID,
 	}}
 }
 
-func (me *ProviderUploadConfig) UpdateFilename(f string) {
-	me.File = f
-}
-
 type uuidUploadConfig struct {
-	File string
+	file string
 	uuid uuid.UUID
+	name string
 }
 
-func NewUUIDUploadConfig(f string) *uuidUploadConfig {
+func NewUUIDUploadConfig(f string, name string) *uuidUploadConfig {
 	u := uuid.New()
-	return &uuidUploadConfig{File: f, uuid: u}
+	return &uuidUploadConfig{file: f, uuid: u}
 }
 
 func (uc *uuidUploadConfig) FullPath() string {
-	return uc.File
+	return uc.file
 }
 
 func (uc *uuidUploadConfig) Filename() string {
-	return filepath.Base(uc.File)
+	if uc.name != "" {
+		return uc.name
+	}
+	return filepath.Base(uc.file)
 }
 
 func (uc *uuidUploadConfig) GetPrefix() UploadPrefix {
@@ -154,6 +156,7 @@ func (r *Client) Upload(read io.Reader, uConfig UploadConfig) (output UploadOutp
 
 	// Whether we fail or not from this point, the prefix could be useful to the caller.
 	output.Upload = r.NewUpload(uConfig)
+
 	uploader := s3manager.NewUploader(sess)
 	_, err = uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(r.BucketName),

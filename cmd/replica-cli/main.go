@@ -34,19 +34,19 @@ func mainErr() error {
 	}
 	app.Command("upload", "uploads a file to S3 and returns the S3 key", func(cmd *cli.Cmd) {
 		file := cmd.StringArg("FILE", "", "file to upload")
-		provider := cmd.StringOpt("p provider", "", "Replica content provider name")
-		id := cmd.StringOpt("i id", "", "Replica content provider id")
+		providerID := cmd.StringOpt("p provider-id", "", "Replica content provider and id (eg youtube-IDHERE")
+		filename := cmd.StringOpt("n filename", "", "Optional filename to be uploaded as. If not provided, it will use the filename of the specified FILE")
 		cmd.Action = func() {
 			checkAction(func() error {
 				var uConfig replica.UploadConfig
-				if *id != "" && *provider != "" {
+				if *providerID != "" {
 					uConfig = &replica.ProviderUploadConfig{
-						File:     *file,
-						Provider: *provider,
-						ID:       *id,
+						File:       *file,
+						ProviderID: *providerID,
+						Name:       *filename,
 					}
 				} else {
-					uConfig = replica.NewUUIDUploadConfig(*file)
+					uConfig = replica.NewUUIDUploadConfig(*file, *filename)
 				}
 
 				output, err := replicaClient.UploadFile(uConfig)
@@ -58,7 +58,7 @@ func mainErr() error {
 				return nil
 			}())
 		}
-		cmd.Spec = "[-i -p] FILE"
+		cmd.Spec = "[-p] [-n] FILE"
 	})
 	app.Command("get-torrent", "retrieve BitTorrent metainfo for a Replica S3 key", func(cmd *cli.Cmd) {
 		name := cmd.StringArg("NAME", "", "Replica S3 object name")
