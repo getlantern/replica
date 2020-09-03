@@ -1,7 +1,6 @@
 package replica
 
 import (
-	"fmt"
 	"path"
 
 	"github.com/google/uuid"
@@ -24,12 +23,11 @@ func (me UUIDPrefix) PrefixString() string {
 }
 
 type ProviderPrefix struct {
-	provider string
-	id       string
+	providerID string
 }
 
 func (me ProviderPrefix) PrefixString() string {
-	return fmt.Sprintf("%v-%v", me.provider, me.id)
+	return me.providerID
 }
 
 func (me UploadPrefix) String() string {
