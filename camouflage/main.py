@@ -18,7 +18,10 @@ def ip2country(ip):
         return None
     try:
         ip = ip.rsplit(":", 1)[0].strip("[]")
-        country = reader.country(ip)
+        try:
+            country = reader.country(ip)
+        except geoip2.errors.AddressNotFoundError:
+            return None
         return country.country.name
     except:
         traceback.print_exc()
