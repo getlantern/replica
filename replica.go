@@ -108,9 +108,13 @@ type uuidUploadConfig struct {
 	name string
 }
 
-func NewUUIDUploadConfig(f string, name string) *uuidUploadConfig {
+// NewUUIDUploadConfig creates a new uuidUploadConfig which implements the UploadConfig interface
+// The first parameter f will be used strictly for potentially opening a local file and can be left blank
+// The second parameter n will be used as the name of the upload. If it is left blank, the name of the
+// upload will come from the first parameter's "base" name
+func NewUUIDUploadConfig(f, n string) *uuidUploadConfig {
 	u := uuid.New()
-	return &uuidUploadConfig{file: f, uuid: u}
+	return &uuidUploadConfig{file: f, uuid: u, name: n}
 }
 
 func (uc *uuidUploadConfig) FullPath() string {

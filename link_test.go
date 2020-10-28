@@ -15,7 +15,7 @@ func TestCreateLink(t *testing.T) {
 	var infoHash torrent.InfoHash
 	filename := "nice name"
 	require.NoError(t, infoHash.FromHexString(infoHashHex))
-	upload := DefaultEndpoint.NewUpload(NewUUIDUploadConfig(filename))
+	upload := DefaultEndpoint.NewUpload(NewUUIDUploadConfig("", filename))
 	link := CreateLink(infoHash, upload, []string{"nice name"})
 	uuidString := upload.String()
 	require.EqualValues(t,
