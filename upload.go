@@ -1,6 +1,7 @@
 package replica
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"path"
@@ -19,17 +20,30 @@ func (me *Upload) FromExactSource(s string) error {
 	if err != nil {
 		return fmt.Errorf("parsing url: %w", err)
 	}
-	uuid, err := uuid.Parse(u.Opaque)
-	if err != nil {
-		return fmt.Errorf("parsing uuid: %w", err)
+
+	if u.Opaque == "" {
+		return errors.New("exact source url opaque value must not be empty")
 	}
+
 	query := u.Query()
+
+	endpoint := Endpoint{
+		BucketName: query.Get("bucket"),
+		AwsRegion:  query.Get("region"),
+	}
+
+	var uploadPrefix UploadPrefix
+
+	uuid, err := uuid.Parse(u.Opaque)
+	if err == nil {
+		uploadPrefix = UploadPrefix{UUIDPrefix{uuid}}
+	} else {
+		uploadPrefix = UploadPrefix{ProviderPrefix{u.Opaque}}
+	}
+
 	*me = Upload{
-		UploadPrefix: UploadPrefix{UUIDPrefix{uuid}},
-		Endpoint: Endpoint{
-			BucketName: query.Get("bucket"),
-			AwsRegion:  query.Get("region"),
-		},
+		UploadPrefix: uploadPrefix,
+		Endpoint:     endpoint,
 	}
 	return nil
 }
