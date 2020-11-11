@@ -30,6 +30,20 @@ func (me ProviderPrefix) PrefixString() string {
 	return me.providerID
 }
 
+// UploadPrefixFromString creates a ProviderPrefix or a UUIDPrefix depending on the format of the provided string
+func UploadPrefixFromString(s string) UploadPrefix {
+	var uploadPrefix UploadPrefix
+
+	uuid, err := uuid.Parse(s)
+	if err == nil {
+		uploadPrefix = UploadPrefix{UUIDPrefix{uuid}}
+	} else {
+		uploadPrefix = UploadPrefix{ProviderPrefix{s}}
+	}
+
+	return uploadPrefix
+}
+
 func (me UploadPrefix) String() string {
 	return me.PrefixString()
 }

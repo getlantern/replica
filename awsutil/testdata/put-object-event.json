@@ -1,0 +1,12 @@
+{
+  "Type" : "Notification",
+  "MessageId" : "fdaa2a37-cca0-54be-9929-7d26337f3421",
+  "TopicArn" : "arn:aws:sns:ap-southeast-1:670960738222:replica-search-events",
+  "Subject" : "Amazon S3 Notification",
+  "Message" : "{\"Records\":[{\"eventVersion\":\"2.1\",\"eventSource\":\"aws:s3\",\"awsRegion\":\"ap-southeast-1\",\"eventTime\":\"2020-04-16T06:39:23.609Z\",\"eventName\":\"ObjectCreated:Put\",\"userIdentity\":{\"principalId\":\"AWS:AROAZYODAL6XNVPA3OR4W:CognitoIdentityCredentials\"},\"requestParameters\":{\"sourceIPAddress\":\"135.180.43.232\"},\"responseElements\":{\"x-amz-request-id\":\"CE1BB40348E6478A\",\"x-amz-id-2\":\"E5Nw9Z0tgZ6SVLXMGA36cUBOOtJzcC8sDlZK6vLX8r1akZuX2APxUhjag9oW14u+OuZithm9vYnfZfdmMT9DuMS9CsLGbpcN\"},\"s3\":{\"s3SchemaVersion\":\"1.0\",\"configurationId\":\"MDc0ODAyNzgtNDc4ZC00Y2NlLWI3YjQtOTA3MDBiZjc2NmFj\",\"bucket\":{\"name\":\"getlantern-replica\",\"ownerIdentity\":{\"principalId\":\"A2ERMRZIAF186Z\"},\"arn\":\"arn:aws:s3:::getlantern-replica\"},\"object\":{\"key\":\"74435c9f-8ed9-4d25-84e8-517e94ae62be/test-image.jpeg\",\"size\":150569,\"eTag\":\"972dfc4b6e381ae188c550ce466d4055\",\"sequencer\":\"005E97FD9E895C4500\"}}}]}",
+  "Timestamp" : "2020-04-16T06:39:27.632Z",
+  "SignatureVersion" : "1",
+  "Signature" : "iNmpRVr0tEBOaQweKmawBqHUx5cGIoYf9D5GqmOkkZK6fxkUCPuRUzwgn04wDAWKiTnneqehPbBwv43MPqA2/Y53x6ykphI2K+OwlIETOPHol2ZOlYkC0No35TudzsxM67B9/aLP3VKg0OONurm9KNn9cPIMvqtvZoNULZ/uwMAni/vtFsruWYPhwIAWcMRU53Fgn5DsSc+CZAE7WR/xwjGvkOUruDQyPB1XoKbwDcBD7/lLesjnG9OCV2EbHx2rufcQS2bYoYLxD77U+h2/FnAFX+o+3jIpG6Yn+TGrIIQ4Lso1mWXZvb8vysdqlHk82l8HlmZha/DmPQ2QNrYvVQ==",
+  "SigningCertURL" : "https://sns.ap-southeast-1.amazonaws.com/SimpleNotificationService-a86cb10b4e1f29c941702d737128f7b6.pem",
+  "UnsubscribeURL" : "https://sns.ap-southeast-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:ap-southeast-1:670960738222:replica-search-events:275c3d15-ed82-479b-b6ef-8a3a340ba6f6"
+}

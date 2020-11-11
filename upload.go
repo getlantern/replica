@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-
-	"github.com/google/uuid"
 )
 
 // Upload is the UUID or provider+id prefix used on S3 to group objects related to an upload.
@@ -32,14 +30,7 @@ func (me *Upload) FromExactSource(s string) error {
 		AwsRegion:  query.Get("region"),
 	}
 
-	var uploadPrefix UploadPrefix
-
-	uuid, err := uuid.Parse(u.Opaque)
-	if err == nil {
-		uploadPrefix = UploadPrefix{UUIDPrefix{uuid}}
-	} else {
-		uploadPrefix = UploadPrefix{ProviderPrefix{u.Opaque}}
-	}
+	uploadPrefix := UploadPrefixFromString(u.Opaque)
 
 	*me = Upload{
 		UploadPrefix: uploadPrefix,
