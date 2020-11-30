@@ -12,7 +12,6 @@ import (
 
 type cognitoProvider struct {
 	IdentityPoolId *string
-	SessionRegion  string
 	credentials.Expiry
 	value credentials.Value
 	sync.Mutex
@@ -29,15 +28,8 @@ func (cp *cognitoProvider) identityPoolId() *string {
 	return aws.String("ap-southeast-1:0b509375-33f5-43f8-97c3-8ee7db4c5c14")
 }
 
-func (cp *cognitoProvider) sessionRegion() string {
-	if cp.SessionRegion == "" {
-		return DefaultEndpoint.AwsRegion
-	}
-	return cp.SessionRegion
-}
-
-func (cp *cognitoProvider) newCredentials() (*cognitoidentity.Credentials, error) {
-	svc := cognitoidentity.New(session.New(), aws.NewConfig().WithRegion(cp.sessionRegion()))
+func (cp *cognitoProvider) newCredentials(region string) (*cognitoidentity.Credentials, error) {
+	svc := cognitoidentity.New(session.New(), aws.NewConfig().WithRegion(region))
 	idRes, err := svc.GetId(&cognitoidentity.GetIdInput{
 		IdentityPoolId: cp.identityPoolId(),
 	})
@@ -52,20 +44,20 @@ func (cp *cognitoProvider) newCredentials() (*cognitoidentity.Credentials, error
 	return credRes.Credentials, nil
 }
 
-func (creds *cognitoProvider) getCredentials() (*credentials.Credentials, error) {
-	creds.Lock()
-	defer creds.Unlock()
-	if creds.IsExpired() {
-		if cr, err := creds.newCredentials(); err != nil {
+func (cp *cognitoProvider) getCredentials(region string) (*credentials.Credentials, error) {
+	cp.Lock()
+	defer cp.Unlock()
+	if cp.IsExpired() {
+		if cr, err := cp.newCredentials(region); err != nil {
 			return nil, err
 		} else {
-			creds.value = credentials.Value{
+			cp.value = credentials.Value{
 				AccessKeyID:     *cr.AccessKeyId,
 				SecretAccessKey: *cr.SecretKey,
 				SessionToken:    *cr.SessionToken,
 			}
-			creds.SetExpiration(*cr.Expiration, 20*time.Second)
+			cp.SetExpiration(*cr.Expiration, 20*time.Second)
 		}
 	}
-	return credentials.NewCredentials(creds), nil
+	return credentials.NewCredentials(cp), nil
 }
