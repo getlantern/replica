@@ -36,7 +36,7 @@ func (me *Upload) FromExactSource(s string) error {
 
 	endpoint := Endpoint{
 		BucketName: query.Get("bucket"),
-		AwsRegion:  query.Get("region"),
+		Region:     query.Get("region"),
 	}
 
 	uploadPrefix := UploadPrefixFromString(u.Opaque)
@@ -77,7 +77,7 @@ func (me Upload) ExactSource() string {
 		Opaque: me.UploadPrefix.String(),
 		RawQuery: url.Values{
 			"bucket": {me.BucketName},
-			"region": {me.AwsRegion},
+			"region": {me.Region},
 		}.Encode(),
 	}).String()
 }
@@ -221,7 +221,8 @@ func (me *UploadMetainfo) FromTorrentMetainfo(mi *metainfo.MetaInfo) error {
 		}
 		me.Upload = Upload{
 			UploadPrefix: UploadPrefix{UUIDPrefix{u}},
-			Endpoint:     DefaultEndpoint,
+			// TODO: do not assume default endpoint
+			Endpoint: DefaultEndpoint,
 		}
 		return nil
 	}

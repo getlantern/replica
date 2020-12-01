@@ -3,7 +3,6 @@ package replica
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -41,22 +40,17 @@ type Storage interface {
 }
 
 type Client struct {
-	httpClient *http.Client
-	storage    Storage
+	Storage  Storage
+	Endpoint Endpoint
 }
 
-var DefaultEndpoint = Endpoint{
-	BucketName: "getlantern-replica",
-	AwsRegion:  "ap-southeast-1",
-}
-
-func (client *Client) GetObject(key string, endpoint Endpoint) (io.ReadCloser, error) {
-	return client.storage.Get(endpoint, key)
+func (client *Client) GetObject(key string) (io.ReadCloser, error) {
+	return client.Storage.Get(client.Endpoint, key)
 }
 
 // GetMetainfo retrieves the metainfo object for the given prefix from S3.
 func (client *Client) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
-	return client.storage.Get(s3Prefix.Endpoint, s3Prefix.TorrentKey())
+	return client.Storage.Get(s3Prefix.Endpoint, s3Prefix.TorrentKey())
 }
 
 // Upload creates a new Replica object from the Reader with the given name. Returns the replica magnet link
@@ -80,13 +74,13 @@ func (client *Client) Upload(read io.Reader, uConfig UploadConfig) (result Uploa
 	}()
 
 	// Whether we fail or not from this point, the prefix could be useful to the caller.
-	result.Upload = DefaultEndpoint.NewUpload(uConfig)
-	err = client.storage.Put(DefaultEndpoint, result.FileDataKey(uConfig.Filename()), read)
+	result.Upload = client.Endpoint.NewUpload(uConfig)
+	err = client.Storage.Put(client.Endpoint, result.FileDataKey(uConfig.Filename()), read)
 	// Synchronize with the piece generation.
 	piecesWriter.CloseWithError(err)
 	<-piecesDone
 	if err != nil {
-		err = fmt.Errorf("uploading to s3: %w", err)
+		err = fmt.Errorf("uploading to %s: %w", client.Endpoint.StorageProvider, err)
 		return
 	}
 	if piecesErr != nil {
@@ -117,7 +111,7 @@ func (client *Client) Upload(read io.Reader, uConfig UploadConfig) (result Uploa
 		err := result.MetaInfo.Write(w)
 		w.CloseWithError(err)
 	}()
-	err = client.storage.Put(result.Upload.Endpoint, result.Upload.TorrentKey(), r)
+	err = client.Storage.Put(result.Upload.Endpoint, result.Upload.TorrentKey(), r)
 	if err != nil {
 		err = fmt.Errorf("uploading metainfo: %w", err)
 		return
@@ -138,7 +132,7 @@ func (client *Client) UploadFile(uConfig UploadConfig) (UploadMetainfo, error) {
 // Deletes the S3 file with the given key.
 func (client *Client) DeleteUpload(upload Upload, files ...[]string) (errs []error) {
 	delete := func(key string) {
-		if err := client.storage.Delete(upload.Endpoint, key); err != nil {
+		if err := client.Storage.Delete(upload.Endpoint, key); err != nil {
 			errs = append(errs, fmt.Errorf("deleting %q: %w", key, err))
 		}
 	}
