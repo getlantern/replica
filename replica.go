@@ -3,143 +3,58 @@ package replica
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
+	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"time"
 
 	_ "github.com/anacrolix/envpprof"
+	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/google/uuid"
-	"golang.org/x/xerrors"
 )
 
+func CreateLink(ih torrent.InfoHash, s3upload Upload, filePath []string) string {
+	return metainfo.Magnet{
+		InfoHash:    ih,
+		DisplayName: path.Join(filePath...),
+		Params: url.Values{
+			"as": s3upload.MetainfoUrls(),
+			"xs": {s3upload.ExactSource()},
+			// This might technically be more correct, but I couldn't find any torrent client that
+			// supports it. Make sure to change any assumptions about "xs" before changing it.
+			//"xs": {fmt.Sprintf("https://getlantern-replica.s3-ap-southeast-1.amazonaws.com/%s/torrent", s3upload)},
+
+			// Since S3 key is provided, we know that it must be a single-file torrent.
+			"so": {"0"},
+			"ws": s3upload.WebseedUrls(),
+		},
+	}.String()
+}
+
+// Storage defines the common API for the cloud object storage
+type Storage interface {
+	Get(endpoint Endpoint, key string) (io.ReadCloser, error)
+	Put(endpoint Endpoint, key string, r io.Reader) error
+	Delete(endpoint Endpoint, key string) error
+}
+
 type Client struct {
-	HttpClient *http.Client
-	Endpoint
-	creds cognitoProvider
+	Storage  Storage
+	Endpoint Endpoint
 }
 
-var DefaultEndpoint = Endpoint{
-	BucketName: "getlantern-replica",
-	AwsRegion:  "ap-southeast-1",
-}
-
-func (r *Client) newSession(region string) (*session.Session, error) {
-	creds, err := r.creds.getCredentials()
-	if err != nil {
-		return nil, xerrors.Errorf("could not get creds: %v", err)
-	}
-
-	return session.Must(session.NewSession(&aws.Config{
-		Credentials:      creds,
-		Region:           aws.String(region),
-		HTTPClient:       r.HttpClient,
-		S3ForcePathStyle: aws.Bool(true),
-	})), nil
-}
-
-func (r *Client) GetObject(key string, endpoint Endpoint) (io.ReadCloser, error) {
-	sess, err := r.newSession(endpoint.AwsRegion)
-	if err != nil {
-		return nil, fmt.Errorf("getting new session: %w", err)
-	}
-	cl := s3.New(sess)
-	out, err := cl.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(endpoint.BucketName),
-		Key:    aws.String(key),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("getting s3 object: %w", err)
-	}
-	return out.Body, nil
-
+func (client *Client) GetObject(key string) (io.ReadCloser, error) {
+	return client.Storage.Get(client.Endpoint, key)
 }
 
 // GetMetainfo retrieves the metainfo object for the given prefix from S3.
-func (r *Client) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
-	return r.GetObject(s3Prefix.TorrentKey(), s3Prefix.Endpoint)
-}
-
-type UploadOutput struct {
-	UploadMetainfo
-}
-
-// UploadConfig provides config information for the upload
-type UploadConfig interface {
-	Filename() string
-	FullPath() string
-	GetPrefix() UploadPrefix
-}
-
-type ProviderUploadConfig struct {
-	File       string
-	ProviderID string
-	Name       string
-}
-
-func (pc *ProviderUploadConfig) FullPath() string {
-	return pc.File
-}
-
-func (pc *ProviderUploadConfig) Filename() string {
-	if pc.Name != "" {
-		return pc.Name
-	}
-	return filepath.Base(pc.File)
-}
-
-func (pc *ProviderUploadConfig) GetPrefix() UploadPrefix {
-	return UploadPrefix{ProviderPrefix{
-		providerID: pc.ProviderID,
-	}}
-}
-
-type uuidUploadConfig struct {
-	file string
-	uuid uuid.UUID
-	name string
-}
-
-// NewUUIDUploadConfig creates a new uuidUploadConfig which implements the UploadConfig interface
-// The first parameter f will be used strictly for potentially opening a local file and can be left blank
-// The second parameter n will be used as the name of the upload. If it is left blank, the name of the
-// upload will come from the first parameter's "base" name
-func NewUUIDUploadConfig(f, n string) *uuidUploadConfig {
-	u := uuid.New()
-	return &uuidUploadConfig{file: f, uuid: u, name: n}
-}
-
-func (uc *uuidUploadConfig) FullPath() string {
-	return uc.file
-}
-
-func (uc *uuidUploadConfig) Filename() string {
-	if uc.name != "" {
-		return uc.name
-	}
-	return filepath.Base(uc.file)
-}
-
-func (uc *uuidUploadConfig) GetPrefix() UploadPrefix {
-	return UploadPrefix{UUIDPrefix{uc.uuid}}
+func (client *Client) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
+	return client.Storage.Get(s3Prefix.Endpoint, s3Prefix.TorrentKey())
 }
 
 // Upload creates a new Replica object from the Reader with the given name. Returns the replica magnet link
-func (r *Client) Upload(read io.Reader, uConfig UploadConfig) (output UploadOutput, err error) {
-	sess, err := r.newSession(r.AwsRegion)
-	if err != nil {
-		err = fmt.Errorf("getting aws session: %w", err)
-		return
-	}
-
+func (client *Client) Upload(read io.Reader, uConfig UploadConfig) (result UploadMetainfo, err error) {
 	piecesReader, piecesWriter := io.Pipe()
 	read = io.TeeReader(read, piecesWriter)
 
@@ -159,19 +74,13 @@ func (r *Client) Upload(read io.Reader, uConfig UploadConfig) (output UploadOutp
 	}()
 
 	// Whether we fail or not from this point, the prefix could be useful to the caller.
-	output.Upload = r.NewUpload(uConfig)
-
-	uploader := s3manager.NewUploader(sess)
-	_, err = uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(r.BucketName),
-		Key:    aws.String(output.FileDataKey(uConfig.Filename())),
-		Body:   read,
-	})
+	result.Upload = client.Endpoint.NewUpload(uConfig)
+	err = client.Storage.Put(client.Endpoint, result.FileDataKey(uConfig.Filename()), read)
 	// Synchronize with the piece generation.
 	piecesWriter.CloseWithError(err)
 	<-piecesDone
 	if err != nil {
-		err = fmt.Errorf("uploading to s3: %w", err)
+		err = fmt.Errorf("uploading to %s: %w", client.Endpoint.StorageProvider, err)
 		return
 	}
 	if piecesErr != nil {
@@ -179,25 +88,30 @@ func (r *Client) Upload(read io.Reader, uConfig UploadConfig) (output UploadOutp
 		return
 	}
 
-	output.Info = metainfo.Info{
+	result.Info = metainfo.Info{
 		PieceLength: pieceLength,
-		Name:        output.Upload.String(),
+		Name:        result.Upload.String(),
 		Pieces:      pieces,
 		Files: []metainfo.FileInfo{
 			{Length: cw.BytesWritten, Path: []string{uConfig.Filename()}},
 		},
 	}
-	infoBytes, err := bencode.Marshal(output.Info)
+	infoBytes, err := bencode.Marshal(result.Info)
 	if err != nil {
 		panic(err)
 	}
-	output.MetaInfo = &metainfo.MetaInfo{
+	result.MetaInfo = &metainfo.MetaInfo{
 		InfoBytes:    infoBytes,
 		CreationDate: time.Now().Unix(),
-		Comment:      output.Upload.ExactSource(),
-		UrlList:      output.Upload.WebseedUrls(),
+		Comment:      result.Upload.ExactSource(),
+		UrlList:      result.Upload.WebseedUrls(),
 	}
-	err = uploadMetainfo(output.Upload, output.MetaInfo, uploader)
+	r, w := io.Pipe()
+	go func() {
+		err := result.MetaInfo.Write(w)
+		w.CloseWithError(err)
+	}()
+	err = client.Storage.Put(result.Upload.Endpoint, result.Upload.TorrentKey(), r)
 	if err != nil {
 		err = fmt.Errorf("uploading metainfo: %w", err)
 		return
@@ -205,45 +119,20 @@ func (r *Client) Upload(read io.Reader, uConfig UploadConfig) (output UploadOutp
 	return
 }
 
-func uploadMetainfo(prefix Upload, mi *metainfo.MetaInfo, uploader *s3manager.Uploader) error {
-	r, w := io.Pipe()
-	go func() {
-		err := mi.Write(w)
-		w.CloseWithError(err)
-	}()
-	_, err := uploader.Upload(&s3manager.UploadInput{
-		Bucket: aws.String(prefix.BucketName),
-		Key:    aws.String(prefix.TorrentKey()),
-		Body:   r,
-	})
-	return err
-}
-
 // UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (r *Client) UploadFile(uConfig UploadConfig) (UploadOutput, error) {
+func (client *Client) UploadFile(uConfig UploadConfig) (UploadMetainfo, error) {
 	f, err := os.Open(uConfig.FullPath())
 	if err != nil {
-		return UploadOutput{}, fmt.Errorf("opening file %q: %w", uConfig.FullPath(), err)
+		return UploadMetainfo{}, fmt.Errorf("opening file %q: %w", uConfig.FullPath(), err)
 	}
 	defer f.Close()
-	return r.Upload(f, uConfig)
+	return client.Upload(f, uConfig)
 }
 
 // Deletes the S3 file with the given key.
-func (r *Client) DeleteUpload(upload Upload, files ...[]string) []error {
-	sess, err := r.newSession(upload.AwsRegion)
-	if err != nil {
-		return []error{fmt.Errorf("getting new session: %w", err)}
-	}
-	svc := s3.New(sess)
-	var errs []error
+func (client *Client) DeleteUpload(upload Upload, files ...[]string) (errs []error) {
 	delete := func(key string) {
-		input := &s3.DeleteObjectInput{
-			Bucket: aws.String(upload.BucketName),
-			Key:    aws.String(key),
-		}
-		_, err := svc.DeleteObject(input)
-		if err != nil {
+		if err := client.Storage.Delete(upload.Endpoint, key); err != nil {
 			errs = append(errs, fmt.Errorf("deleting %q: %w", key, err))
 		}
 	}
@@ -252,37 +141,4 @@ func (r *Client) DeleteUpload(upload Upload, files ...[]string) []error {
 		delete(upload.FileDataKey(path.Join(f...)))
 	}
 	return errs
-}
-
-type IteredUpload struct {
-	Metainfo UploadMetainfo
-	FileInfo os.FileInfo
-	Err      error
-}
-
-// IterUploads walks the torrent files stored in the directory.
-func (r *Endpoint) IterUploads(dir string, f func(IteredUpload)) error {
-	entries, err := ioutil.ReadDir(dir)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		p := filepath.Join(dir, e.Name())
-		mi, err := metainfo.LoadFromFile(p)
-		if err != nil {
-			f(IteredUpload{Err: fmt.Errorf("loading metainfo from file %q: %w", p, err)})
-			continue
-		}
-		var umi UploadMetainfo
-		err = umi.FromTorrentMetainfo(mi)
-		if err != nil {
-			f(IteredUpload{Err: fmt.Errorf("unwrapping upload metainfo from file %q: %w", p, err)})
-			continue
-		}
-		f(IteredUpload{Metainfo: umi, FileInfo: e})
-	}
-	return nil
 }
