@@ -73,3 +73,15 @@ else webseed
 end
 Flashlight->Desktop UI: Replica content
 ```
+
+### Component Diagrams
+
+These diagrams show interactions from the perspective of individual components.
+
+* [flashlight](https://docs.google.com/drawings/d/1uWvZj-mnJf3gs5U4htfWuQMAP9RvFsq19br8DoipLK8/edit?usp=sharing)
+* [magentico](https://docs.google.com/drawings/d/1CJlvh9l0V_U0E8x98LdrhdUs8SIoJZlqYmpAVlQ_tb8/edit?usp=sharing)
+* [replica-lambdas](https://docs.google.com/drawings/d/1RF9YRbwAFMf5B8cThPqj8F11BsUCBwa6Z5fjgZ8OBwQ/edit?usp=sharing)
+* [replica-peer](https://docs.google.com/drawings/d/1hbflWMhDDSCJGJb9ubNETyEHio75LBU6Ns5_f7MYfoQ/edit?usp=sharing)
+* [replica-search](https://docs.google.com/drawings/d/1ZCCufu6DH90fddT_l-U2UMnAX-rQJwjFkzGiVc51ass/edit?usp=sharing)
+* [replica-thumbnailer](https://docs.google.com/drawings/d/188jxiuFrroiwNs3Mhaih8mnQtC5S6XgKYcZ6EXrJp7w/edit?usp=sharing)
+* [s3_to_tencent](https://docs.google.com/drawings/d/1k9sMTiPwc3kKOUdTocmeDFKSSClgAsAzUVlWgiSjDf0/edit?usp=sharing)
