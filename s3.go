@@ -14,15 +14,11 @@ import (
 
 var credsProvider cognitoProvider
 
-func NewS3Storage() Storage {
-	return &s3Storage{http.DefaultClient}
+type S3Storage struct {
+	HttpClient *http.Client
 }
 
-type s3Storage struct {
-	httpClient *http.Client
-}
-
-func (s *s3Storage) Get(endpoint Endpoint, key string) (io.ReadCloser, error) {
+func (s S3Storage) Get(endpoint Endpoint, key string) (io.ReadCloser, error) {
 	sess, err := s.newSession(endpoint.Region)
 	if err != nil {
 		return nil, err
@@ -38,7 +34,7 @@ func (s *s3Storage) Get(endpoint Endpoint, key string) (io.ReadCloser, error) {
 	return out.Body, nil
 }
 
-func (s *s3Storage) Put(endpoint Endpoint, key string, r io.Reader) error {
+func (s S3Storage) Put(endpoint Endpoint, key string, r io.Reader) error {
 	sess, err := s.newSession(endpoint.Region)
 	if err != nil {
 		return err
@@ -52,7 +48,7 @@ func (s *s3Storage) Put(endpoint Endpoint, key string, r io.Reader) error {
 	return err
 }
 
-func (s *s3Storage) Delete(endpoint Endpoint, key string) error {
+func (s S3Storage) Delete(endpoint Endpoint, key string) error {
 	sess, err := s.newSession(endpoint.Region)
 	if err != nil {
 		return err
@@ -65,7 +61,7 @@ func (s *s3Storage) Delete(endpoint Endpoint, key string) error {
 	return err
 }
 
-func (s *s3Storage) newSession(region string) (*session.Session, error) {
+func (s S3Storage) newSession(region string) (*session.Session, error) {
 	creds, err := credsProvider.getCredentials(region)
 	if err != nil {
 		return nil, xerrors.Errorf("could not get creds: %v", err)
@@ -73,7 +69,7 @@ func (s *s3Storage) newSession(region string) (*session.Session, error) {
 	sess := session.Must(session.NewSession(&aws.Config{
 		Credentials:      creds,
 		Region:           aws.String(region),
-		HTTPClient:       s.httpClient,
+		HTTPClient:       s.HttpClient,
 		S3ForcePathStyle: aws.Bool(true),
 	}))
 	return sess, nil

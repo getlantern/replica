@@ -3,9 +3,11 @@ package replica
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	_ "github.com/anacrolix/envpprof"
@@ -44,17 +46,17 @@ type Client struct {
 	Endpoint Endpoint
 }
 
-func (client *Client) GetObject(key string) (io.ReadCloser, error) {
+func (client Client) GetObject(key string) (io.ReadCloser, error) {
 	return client.Storage.Get(client.Endpoint, key)
 }
 
 // GetMetainfo retrieves the metainfo object for the given prefix from S3.
-func (client *Client) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
+func (client Client) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
 	return client.Storage.Get(s3Prefix.Endpoint, s3Prefix.TorrentKey())
 }
 
 // Upload creates a new Replica object from the Reader with the given name. Returns the replica magnet link
-func (client *Client) Upload(read io.Reader, uConfig UploadConfig) (result UploadMetainfo, err error) {
+func (client Client) Upload(read io.Reader, uConfig UploadConfig) (result UploadMetainfo, err error) {
 	piecesReader, piecesWriter := io.Pipe()
 	read = io.TeeReader(read, piecesWriter)
 
@@ -120,7 +122,7 @@ func (client *Client) Upload(read io.Reader, uConfig UploadConfig) (result Uploa
 }
 
 // UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (client *Client) UploadFile(uConfig UploadConfig) (UploadMetainfo, error) {
+func (client Client) UploadFile(uConfig UploadConfig) (UploadMetainfo, error) {
 	f, err := os.Open(uConfig.FullPath())
 	if err != nil {
 		return UploadMetainfo{}, fmt.Errorf("opening file %q: %w", uConfig.FullPath(), err)
@@ -141,4 +143,39 @@ func (client *Client) DeleteUpload(upload Upload, files ...[]string) (errs []err
 		delete(upload.FileDataKey(path.Join(f...)))
 	}
 	return errs
+}
+
+type IteredUpload struct {
+	Metainfo UploadMetainfo
+	FileInfo os.FileInfo
+	Err      error
+}
+
+// IterUploads walks the torrent files (UUID-uploads?) stored in the directory. This is specific to
+// the replica desktop server, except that maybe there is replica-project specific stuff to extract
+// from metainfos etc.
+func IterUploads(dir string, f func(IteredUpload)) error {
+	entries, err := ioutil.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		p := filepath.Join(dir, e.Name())
+		mi, err := metainfo.LoadFromFile(p)
+		if err != nil {
+			f(IteredUpload{Err: fmt.Errorf("loading metainfo from file %q: %w", p, err)})
+			continue
+		}
+		var umi UploadMetainfo
+		err = umi.FromTorrentMetainfo(mi)
+		if err != nil {
+			f(IteredUpload{Err: fmt.Errorf("unwrapping upload metainfo from file %q: %w", p, err)})
+			continue
+		}
+		f(IteredUpload{Metainfo: umi, FileInfo: e})
+	}
+	return nil
 }
