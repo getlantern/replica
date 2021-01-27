@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/google/uuid"
@@ -12,7 +13,7 @@ import (
 	"github.com/getlantern/replica"
 )
 
-var s3Client = &replica.Client{replica.NewS3Storage(), replica.DefaultEndpoint}
+var s3Client = &replica.Client{&replica.S3Storage{HttpClient: http.DefaultClient}, replica.DefaultEndpoint}
 
 func main() {
 	err := mainErr()
