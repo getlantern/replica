@@ -1,4 +1,12 @@
 #!/bin/bash
+
+# This can be used to delete queues that meet certain criteria, around pending
+# messages (implying that nothing has consumed them for a while), and queue
+# modification age. It's useful as a reference for structuring aws cli
+# commands too. I probably should have just written in Python to begin with,
+# but that's not as easy to work with interactively to discover how to do this
+# stuff.
+
 set -eux
 : "${AWS_PARALLELISM:=10}"
 : "${XARGS_PARAMS:=-L 1 -P $AWS_PARALLELISM}"
@@ -13,4 +21,3 @@ aws sqs list-queues --queue-name-prefix "$QUEUE_NAME_PREFIX" \
 | jq '.QueueUrl' \
 | tee /dev/tty \
 | xargs ${XARGS_PARAMS[@]} aws sqs delete-queue --queue-url
-

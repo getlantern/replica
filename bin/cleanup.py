@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+
+# This contains stuff relating to cleaning up Replica S3 stuff. Currently
+# that's just removing subscriptions that have no endpoints (Amazon says
+# somewhere they're supposed to clean these up for you?). You should clean up
+# the SQS queues first.
+
 import boto3
 import logging
 
