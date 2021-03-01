@@ -13,7 +13,6 @@ sns = boto3.client("sns")
 
 
 def all_subscriptions():
-    token = None
     client = sns
     kwargs = dict(
         TopicArn="arn:aws:sns:ap-southeast-1:670960738222:replica-search-events"
