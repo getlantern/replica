@@ -7,11 +7,18 @@ const (
 	StorageProviderTencent = "tencent"
 )
 
-var DefaultEndpoint = Endpoint{
-	StorageProvider: StorageProviderS3,
-	BucketName:      "getlantern-replica",
-	Region:          "ap-southeast-1",
-}
+var (
+	DefaultEndpoint = Endpoint{
+		StorageProvider: StorageProviderS3,
+		BucketName:      "getlantern-replica",
+		Region:          "ap-southeast-1",
+	}
+	DefaultMetadataEndpoint = Endpoint{
+		StorageProvider: StorageProviderS3,
+		BucketName:      "replica-metadata",
+		Region:          "ap-southeast-1",
+	}
+)
 
 type Endpoint struct {
 	StorageProvider string
@@ -28,6 +35,7 @@ func (r Endpoint) NewUpload(uConfig UploadConfig) Upload {
 }
 
 func (r *Endpoint) rootUrls() []string {
+	// TODO: Refactor this to use an interface or template and not a switch.
 	switch r.StorageProvider {
 	case StorageProviderS3:
 		return []string{
