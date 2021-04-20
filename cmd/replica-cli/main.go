@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	cli "github.com/jawher/mow.cli"
@@ -13,7 +14,11 @@ import (
 	"github.com/getlantern/replica"
 )
 
-var s3Client = &replica.Client{&replica.S3Storage{HttpClient: http.DefaultClient}, replica.DefaultEndpoint}
+var s3Client = &replica.Client{
+	Storage:               &replica.S3Storage{HttpClient: http.DefaultClient},
+	Endpoint:              replica.DefaultEndpoint,
+	ReplicaUploadEndpoint: "https://replica-search.lantern.io",
+}
 
 func main() {
 	err := mainErr()
@@ -48,22 +53,26 @@ func uploadTo(cmd *cli.Cmd, client *replica.Client) {
 	filename := cmd.StringOpt("n filename", "", "Optional filename to be uploaded as. If not provided, it will use the filename of the specified FILE")
 	cmd.Action = func() {
 		checkAction(func() error {
-			var uConfig replica.UploadConfig
-			if *providerID != "" {
-				uConfig = &replica.ProviderUploadConfig{
-					File:       *file,
-					ProviderID: *providerID,
-					Name:       *filename,
+			output, err := func() (replica.UploadMetainfo, error) {
+				if *providerID != "" {
+					uConfig := &replica.ProviderUploadConfig{
+						File:       *file,
+						ProviderID: *providerID,
+						Name:       *filename,
+					}
+					return client.UploadFileDirectly(uConfig)
 				}
-			} else {
-				uConfig = replica.NewUUIDUploadConfig(*file, *filename)
-			}
-
-			output, err := client.UploadFile(uConfig)
+				asName := *filename
+				if asName == "" {
+					asName = filepath.Base(*file)
+				}
+				return client.UploadFile(*file, asName)
+			}()
 			if err != nil {
 				return err
 			}
 			log.Printf("uploaded to %q", output.Upload)
+			// This could come from the link response from the upload service if that was exposed.
 			fmt.Printf("%s\n", replica.CreateLink(output.HashInfoBytes(), output.Upload, output.FilePath()))
 			return nil
 		}())

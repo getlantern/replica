@@ -1,9 +1,13 @@
 package replica
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -44,19 +48,88 @@ type Storage interface {
 type Client struct {
 	Storage  Storage
 	Endpoint Endpoint
+
+	// This should be a URL to handle uploads. The specifics are in replica-rust. It's not clear how
+	// this might relate to other operations that would use Endpoint at present. Uploading might be
+	// distinct from other client operations now.
+	ReplicaUploadEndpoint string
+	HttpClient            *http.Client
 }
 
-func (client Client) GetObject(key string) (io.ReadCloser, error) {
-	return client.Storage.Get(client.Endpoint, key)
+func (cl Client) GetObject(key string) (io.ReadCloser, error) {
+	return cl.Storage.Get(cl.Endpoint, key)
 }
 
 // GetMetainfo retrieves the metainfo object for the given prefix from S3.
-func (client Client) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
-	return client.Storage.Get(s3Prefix.Endpoint, s3Prefix.TorrentKey())
+func (cl Client) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
+	return cl.Storage.Get(s3Prefix.Endpoint, s3Prefix.TorrentKey())
 }
 
-// Upload creates a new Replica object from the Reader with the given name. Returns the replica magnet link
-func (client Client) Upload(read io.Reader, uConfig UploadConfig) (result UploadMetainfo, err error) {
+func (cl Client) Upload(read io.Reader, fileName string) (result UploadMetainfo, err error) {
+	req, err := http.NewRequest(http.MethodPut, cl.ReplicaUploadEndpoint+fileName, read)
+	if err != nil {
+		err = fmt.Errorf("creating put request: %w", err)
+		return
+	}
+	resp, err := cl.HttpClient.Do(req)
+	if err != nil {
+		err = fmt.Errorf("doing request: %w", err)
+		return
+	}
+	defer resp.Body.Close()
+	respBodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("reading all response body bytes: %w", err)
+		return
+	}
+	var output ServiceUploadOkResult
+	err = json.Unmarshal(respBodyBytes, &output)
+	if err != nil {
+		err = fmt.Errorf("decoding response: %w", err)
+		return
+	}
+	var metainfoBytesBuffer bytes.Buffer
+	for _, r := range output.Metainfo {
+		if r < 0 || r > math.MaxUint8 {
+			err = fmt.Errorf("response metainfo rune has unexpected codepoint")
+			return
+		}
+		err = metainfoBytesBuffer.WriteByte(byte(r))
+		if err != nil {
+			panic(err)
+		}
+	}
+	mi, err := metainfo.Load(&metainfoBytesBuffer)
+	if err != nil {
+		err = fmt.Errorf("parsing metainfo from response: %w", err)
+		return
+	}
+	result.MetaInfo = mi
+	result.Info, err = mi.UnmarshalInfo()
+	if err != nil {
+		err = fmt.Errorf("unmarshalling info from response metainfo bytes: %w", err)
+		return
+	}
+	m, err := metainfo.ParseMagnetURI(output.Link)
+	if err != nil {
+		err = fmt.Errorf("parsing response replica link: %w", err)
+		return
+	}
+	err = result.Upload.FromMagnet(m)
+	if err != nil {
+		err = fmt.Errorf("extracting upload specifics from response replica link: %w", err)
+		return
+	}
+	return
+}
+
+// Deprecated: Uploads directly to storage in Go are now unsupported. Use an intermediary service
+// like replica-rust for this. Uploading with custom endpoints/non-UUID prefixes may be an exception
+// for now.
+//
+// Upload creates a new Replica object from the Reader with the given name. Returns the replica
+// magnet link.
+func (cl Client) UploadDirectly(read io.Reader, uConfig UploadConfig) (result UploadMetainfo, err error) {
 	piecesReader, piecesWriter := io.Pipe()
 	read = io.TeeReader(read, piecesWriter)
 
@@ -76,13 +149,13 @@ func (client Client) Upload(read io.Reader, uConfig UploadConfig) (result Upload
 	}()
 
 	// Whether we fail or not from this point, the prefix could be useful to the caller.
-	result.Upload = client.Endpoint.NewUpload(uConfig)
-	err = client.Storage.Put(client.Endpoint, result.FileDataKey(uConfig.Filename()), read)
+	result.Upload = cl.Endpoint.NewUpload(uConfig)
+	err = cl.Storage.Put(cl.Endpoint, result.FileDataKey(uConfig.Filename()), read)
 	// Synchronize with the piece generation.
 	piecesWriter.CloseWithError(err)
 	<-piecesDone
 	if err != nil {
-		err = fmt.Errorf("uploading to %s: %w", client.Endpoint.StorageProvider, err)
+		err = fmt.Errorf("uploading to %s: %w", cl.Endpoint.StorageProvider, err)
 		return
 	}
 	if piecesErr != nil {
@@ -113,7 +186,7 @@ func (client Client) Upload(read io.Reader, uConfig UploadConfig) (result Upload
 		err := result.MetaInfo.Write(w)
 		w.CloseWithError(err)
 	}()
-	err = client.Storage.Put(result.Upload.Endpoint, result.Upload.TorrentKey(), r)
+	err = cl.Storage.Put(result.Upload.Endpoint, result.Upload.TorrentKey(), r)
 	if err != nil {
 		err = fmt.Errorf("uploading metainfo: %w", err)
 		return
@@ -122,19 +195,30 @@ func (client Client) Upload(read io.Reader, uConfig UploadConfig) (result Upload
 }
 
 // UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (client Client) UploadFile(uConfig UploadConfig) (UploadMetainfo, error) {
+func (cl Client) UploadFile(fileName, uploadedAsName string) (_ UploadMetainfo, err error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		err = fmt.Errorf("opening file: %w", err)
+		return
+	}
+	defer f.Close()
+	return cl.Upload(f, uploadedAsName)
+}
+
+// UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
+func (cl Client) UploadFileDirectly(uConfig UploadConfig) (UploadMetainfo, error) {
 	f, err := os.Open(uConfig.FullPath())
 	if err != nil {
 		return UploadMetainfo{}, fmt.Errorf("opening file %q: %w", uConfig.FullPath(), err)
 	}
 	defer f.Close()
-	return client.Upload(f, uConfig)
+	return cl.UploadDirectly(f, uConfig)
 }
 
 // Deletes the S3 file with the given key.
-func (client *Client) DeleteUpload(upload Upload, files ...[]string) (errs []error) {
+func (cl *Client) DeleteUpload(upload Upload, files ...[]string) (errs []error) {
 	delete := func(key string) {
-		if err := client.Storage.Delete(upload.Endpoint, key); err != nil {
+		if err := cl.Storage.Delete(upload.Endpoint, key); err != nil {
 			errs = append(errs, fmt.Errorf("deleting %q: %w", key, err))
 		}
 	}

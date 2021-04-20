@@ -22,6 +22,8 @@ func (upload *Upload) FromMagnet(m metainfo.Magnet) error {
 	return upload.FromExactSource(m.Params.Get("xs"))
 }
 
+// Parses the content of the "xs" magnet link field, which is also the metainfo "comment" field in
+// newer uploads.
 func (me *Upload) FromExactSource(s string) error {
 	u, err := url.Parse(s)
 	if err != nil {
@@ -198,6 +200,9 @@ func (me UploadPrefix) DataKey() string {
 // Wraps an upload metainfo.Metainfo
 type UploadMetainfo struct {
 	*metainfo.MetaInfo
+	// TODO: When Go finally gets an optional type, this should be handled by a helper, as it may or
+	// may not be created as a side-effect of uploading (for example uploading directly requires
+	// that the info is produced locally).
 	metainfo.Info
 	Upload
 }
@@ -214,17 +219,27 @@ func (me *UploadMetainfo) FromTorrentMetainfo(mi *metainfo.MetaInfo) error {
 		MetaInfo: mi,
 		Info:     info,
 	}
-	if mi.Comment == "Replica" {
+	switch mi.Comment {
+	//case "":
+	//// There should be *no* torrent uploads with no comment. However if it did happen, we could
+	//// recover if the torrent name was a UUID. A provider would accept any string, so it's not clear
+	//// if we want to follow that as a possibility.
+	//fallthrough
+	case "Replica":
+		// A long time ago, we uploaded with this as the comment, and there were only UUID prefixes.
 		u, err := uuid.Parse(info.Name)
 		if err != nil {
 			return fmt.Errorf("parsing uuid from info name: %w", err)
 		}
 		me.Upload = Upload{
 			UploadPrefix: UploadPrefix{UUIDPrefix{u}},
-			// TODO: do not assume default endpoint
+			// We assume the default endpoint, because that's the one that was in use when this
+			// comment-style was standard. If the default endpoint changes, this should probably be
+			// changed to reflect where "Replica"-comment uploads would now reside.
 			Endpoint: DefaultEndpoint,
 		}
 		return nil
+	default:
 	}
 	return me.Upload.FromExactSource(mi.Comment)
 }
