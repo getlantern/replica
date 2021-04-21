@@ -197,7 +197,7 @@ func (me UploadPrefix) DataKey() string {
 	return path.Join(me.PrefixString(), "data")
 }
 
-// Wraps an upload metainfo.Metainfo
+// Wraps an upload metainfo.Metainfo with Replica-related values parsed out.
 type UploadMetainfo struct {
 	*metainfo.MetaInfo
 	// TODO: When Go finally gets an optional type, this should be handled by a helper, as it may or

@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -15,9 +16,9 @@ import (
 )
 
 var s3Client = &replica.Client{
-	Storage:               &replica.S3Storage{HttpClient: http.DefaultClient},
-	Endpoint:              replica.DefaultEndpoint,
-	ReplicaUploadEndpoint: "https://replica-search.lantern.io",
+	Storage:                &replica.S3Storage{HttpClient: http.DefaultClient},
+	Endpoint:               replica.DefaultEndpoint,
+	ReplicaServiceEndpoint: &url.URL{Scheme: "https", Host: "replica-search.lantern.io"},
 }
 
 func main() {
@@ -53,7 +54,7 @@ func uploadTo(cmd *cli.Cmd, client *replica.Client) {
 	filename := cmd.StringOpt("n filename", "", "Optional filename to be uploaded as. If not provided, it will use the filename of the specified FILE")
 	cmd.Action = func() {
 		checkAction(func() error {
-			output, err := func() (replica.UploadMetainfo, error) {
+			output, err := func() (replica.UploadOutput, error) {
 				if *providerID != "" {
 					uConfig := &replica.ProviderUploadConfig{
 						File:       *file,

@@ -52,8 +52,8 @@ type Client struct {
 	// This should be a URL to handle uploads. The specifics are in replica-rust. It's not clear how
 	// this might relate to other operations that would use Endpoint at present. Uploading might be
 	// distinct from other client operations now.
-	ReplicaUploadEndpoint string
-	HttpClient            *http.Client
+	ReplicaServiceEndpoint *url.URL
+	HttpClient             *http.Client
 }
 
 func (cl Client) GetObject(key string) (io.ReadCloser, error) {
@@ -65,8 +65,14 @@ func (cl Client) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
 	return cl.Storage.Get(s3Prefix.Endpoint, s3Prefix.TorrentKey())
 }
 
-func (cl Client) Upload(read io.Reader, fileName string) (result UploadMetainfo, err error) {
-	req, err := http.NewRequest(http.MethodPut, cl.ReplicaUploadEndpoint+fileName, read)
+type UploadOutput struct {
+	UploadMetainfo
+	AuthToken *string
+	Link      *string
+}
+
+func (cl Client) Upload(read io.Reader, fileName string) (output UploadOutput, err error) {
+	req, err := http.NewRequest(http.MethodPut, serviceUploadUrl(cl.ReplicaServiceEndpoint, fileName).String(), read)
 	if err != nil {
 		err = fmt.Errorf("creating put request: %w", err)
 		return
@@ -82,14 +88,16 @@ func (cl Client) Upload(read io.Reader, fileName string) (result UploadMetainfo,
 		err = fmt.Errorf("reading all response body bytes: %w", err)
 		return
 	}
-	var output ServiceUploadOkResult
-	err = json.Unmarshal(respBodyBytes, &output)
+	var serviceOutput ServiceUploadOutput
+	err = json.Unmarshal(respBodyBytes, &serviceOutput)
 	if err != nil {
 		err = fmt.Errorf("decoding response: %w", err)
 		return
 	}
+	output.Link = &serviceOutput.Link
+	output.AuthToken = &serviceOutput.AdminToken
 	var metainfoBytesBuffer bytes.Buffer
-	for _, r := range output.Metainfo {
+	for _, r := range serviceOutput.Metainfo {
 		if r < 0 || r > math.MaxUint8 {
 			err = fmt.Errorf("response metainfo rune has unexpected codepoint")
 			return
@@ -104,18 +112,18 @@ func (cl Client) Upload(read io.Reader, fileName string) (result UploadMetainfo,
 		err = fmt.Errorf("parsing metainfo from response: %w", err)
 		return
 	}
-	result.MetaInfo = mi
-	result.Info, err = mi.UnmarshalInfo()
+	output.MetaInfo = mi
+	output.Info, err = mi.UnmarshalInfo()
 	if err != nil {
 		err = fmt.Errorf("unmarshalling info from response metainfo bytes: %w", err)
 		return
 	}
-	m, err := metainfo.ParseMagnetURI(output.Link)
+	m, err := metainfo.ParseMagnetURI(serviceOutput.Link)
 	if err != nil {
 		err = fmt.Errorf("parsing response replica link: %w", err)
 		return
 	}
-	err = result.Upload.FromMagnet(m)
+	err = output.Upload.FromMagnet(m)
 	if err != nil {
 		err = fmt.Errorf("extracting upload specifics from response replica link: %w", err)
 		return
@@ -129,7 +137,7 @@ func (cl Client) Upload(read io.Reader, fileName string) (result UploadMetainfo,
 //
 // Upload creates a new Replica object from the Reader with the given name. Returns the replica
 // magnet link.
-func (cl Client) UploadDirectly(read io.Reader, uConfig UploadConfig) (result UploadMetainfo, err error) {
+func (cl Client) UploadDirectly(read io.Reader, uConfig UploadConfig) (output UploadOutput, err error) {
 	piecesReader, piecesWriter := io.Pipe()
 	read = io.TeeReader(read, piecesWriter)
 
@@ -149,8 +157,8 @@ func (cl Client) UploadDirectly(read io.Reader, uConfig UploadConfig) (result Up
 	}()
 
 	// Whether we fail or not from this point, the prefix could be useful to the caller.
-	result.Upload = cl.Endpoint.NewUpload(uConfig)
-	err = cl.Storage.Put(cl.Endpoint, result.FileDataKey(uConfig.Filename()), read)
+	output.Upload = cl.Endpoint.NewUpload(uConfig)
+	err = cl.Storage.Put(cl.Endpoint, output.FileDataKey(uConfig.Filename()), read)
 	// Synchronize with the piece generation.
 	piecesWriter.CloseWithError(err)
 	<-piecesDone
@@ -163,30 +171,30 @@ func (cl Client) UploadDirectly(read io.Reader, uConfig UploadConfig) (result Up
 		return
 	}
 
-	result.Info = metainfo.Info{
+	output.Info = metainfo.Info{
 		PieceLength: pieceLength,
-		Name:        result.Upload.String(),
+		Name:        output.Upload.String(),
 		Pieces:      pieces,
 		Files: []metainfo.FileInfo{
 			{Length: cw.BytesWritten, Path: []string{uConfig.Filename()}},
 		},
 	}
-	infoBytes, err := bencode.Marshal(result.Info)
+	infoBytes, err := bencode.Marshal(output.Info)
 	if err != nil {
 		panic(err)
 	}
-	result.MetaInfo = &metainfo.MetaInfo{
+	output.MetaInfo = &metainfo.MetaInfo{
 		InfoBytes:    infoBytes,
 		CreationDate: time.Now().Unix(),
-		Comment:      result.Upload.ExactSource(),
-		UrlList:      result.Upload.WebseedUrls(),
+		Comment:      output.Upload.ExactSource(),
+		UrlList:      output.Upload.WebseedUrls(),
 	}
 	r, w := io.Pipe()
 	go func() {
-		err := result.MetaInfo.Write(w)
+		err := output.MetaInfo.Write(w)
 		w.CloseWithError(err)
 	}()
-	err = cl.Storage.Put(result.Upload.Endpoint, result.Upload.TorrentKey(), r)
+	err = cl.Storage.Put(output.Upload.Endpoint, output.Upload.TorrentKey(), r)
 	if err != nil {
 		err = fmt.Errorf("uploading metainfo: %w", err)
 		return
@@ -195,7 +203,7 @@ func (cl Client) UploadDirectly(read io.Reader, uConfig UploadConfig) (result Up
 }
 
 // UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (cl Client) UploadFile(fileName, uploadedAsName string) (_ UploadMetainfo, err error) {
+func (cl Client) UploadFile(fileName, uploadedAsName string) (_ UploadOutput, err error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		err = fmt.Errorf("opening file: %w", err)
@@ -206,17 +214,43 @@ func (cl Client) UploadFile(fileName, uploadedAsName string) (_ UploadMetainfo, 
 }
 
 // UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (cl Client) UploadFileDirectly(uConfig UploadConfig) (UploadMetainfo, error) {
+func (cl Client) UploadFileDirectly(uConfig UploadConfig) (_ UploadOutput, err error) {
 	f, err := os.Open(uConfig.FullPath())
 	if err != nil {
-		return UploadMetainfo{}, fmt.Errorf("opening file %q: %w", uConfig.FullPath(), err)
+		err = fmt.Errorf("opening file %q: %w", uConfig.FullPath(), err)
+		return
 	}
 	defer f.Close()
 	return cl.UploadDirectly(f, uConfig)
 }
 
-// Deletes the S3 file with the given key.
-func (cl *Client) DeleteUpload(upload Upload, files ...[]string) (errs []error) {
+func (cl *Client) DeleteUpload(prefix Prefix, auth string, haveMetainfo bool) error {
+	data := url.Values{
+		"prefix": {prefix.PrefixString()},
+		"auth":   {auth},
+	}
+	if haveMetainfo {
+		// We only use this field if we need to, to prevent detection and for backward compatibility.
+		data["have_metainfo"] = []string{"true"}
+	}
+	resp, err := cl.HttpClient.PostForm(
+		serviceDeleteUrl(cl.ReplicaServiceEndpoint).String(),
+		data,
+	)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected response: %q", resp.Status)
+	}
+	return nil
+}
+
+// Deletes the S3 file with the given key. TODO: Delete admin token too.
+//
+// Deprecated: Delete via replica-rust instead.
+func (cl *Client) DeleteUploadDirectly(upload Upload, files ...[]string) (errs []error) {
 	delete := func(key string) {
 		if err := cl.Storage.Delete(upload.Endpoint, key); err != nil {
 			errs = append(errs, fmt.Errorf("deleting %q: %w", key, err))
