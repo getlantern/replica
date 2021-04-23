@@ -46,9 +46,16 @@ type Storage interface {
 }
 
 type Client struct {
+	StorageClient
+	ServiceClient
+}
+
+type StorageClient struct {
 	Storage  Storage
 	Endpoint Endpoint
+}
 
+type ServiceClient struct {
 	// This should be a URL to handle uploads. The specifics are in replica-rust. It's not clear how
 	// this might relate to other operations that would use Endpoint at present. Uploading might be
 	// distinct from other client operations now.
@@ -56,12 +63,12 @@ type Client struct {
 	HttpClient             *http.Client
 }
 
-func (cl Client) GetObject(key string) (io.ReadCloser, error) {
+func (cl StorageClient) GetObject(key string) (io.ReadCloser, error) {
 	return cl.Storage.Get(cl.Endpoint, key)
 }
 
 // GetMetainfo retrieves the metainfo object for the given prefix from S3.
-func (cl Client) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
+func (cl StorageClient) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
 	return cl.Storage.Get(s3Prefix.Endpoint, s3Prefix.TorrentKey())
 }
 
@@ -71,7 +78,7 @@ type UploadOutput struct {
 	Link      *string
 }
 
-func (cl Client) Upload(read io.Reader, fileName string) (output UploadOutput, err error) {
+func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOutput, err error) {
 	req, err := http.NewRequest(http.MethodPut, serviceUploadUrl(cl.ReplicaServiceEndpoint, fileName).String(), read)
 	if err != nil {
 		err = fmt.Errorf("creating put request: %w", err)
@@ -224,7 +231,7 @@ func (cl Client) UploadFileDirectly(uConfig UploadConfig) (_ UploadOutput, err e
 	return cl.UploadDirectly(f, uConfig)
 }
 
-func (cl *Client) DeleteUpload(prefix Prefix, auth string, haveMetainfo bool) error {
+func (cl ServiceClient) DeleteUpload(prefix Prefix, auth string, haveMetainfo bool) error {
 	data := url.Values{
 		"prefix": {prefix.PrefixString()},
 		"auth":   {auth},

@@ -15,10 +15,15 @@ import (
 	"github.com/getlantern/replica"
 )
 
-var s3Client = &replica.Client{
-	Storage:                &replica.S3Storage{HttpClient: http.DefaultClient},
-	Endpoint:               replica.DefaultEndpoint,
-	ReplicaServiceEndpoint: &url.URL{Scheme: "https", Host: "replica-search.lantern.io"},
+var s3Client = replica.Client{
+	replica.StorageClient{
+		Storage:  &replica.S3Storage{HttpClient: http.DefaultClient},
+		Endpoint: replica.DefaultEndpoint,
+	},
+	replica.ServiceClient{
+		ReplicaServiceEndpoint: &url.URL{Scheme: "https", Host: "replica-search.lantern.io"},
+		HttpClient:             http.DefaultClient,
+	},
 }
 
 func main() {
@@ -45,7 +50,7 @@ func mainErr() error {
 }
 
 func uploadToS3(cmd *cli.Cmd) {
-	uploadTo(cmd, s3Client)
+	uploadTo(cmd, &s3Client)
 }
 
 func uploadTo(cmd *cli.Cmd, client *replica.Client) {
