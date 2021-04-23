@@ -90,7 +90,7 @@ func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOu
 		return
 	}
 	defer resp.Body.Close()
-	respBodyBytes, err := io.ReadAll(resp.Body)
+	respBodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		err = fmt.Errorf("reading all response body bytes: %w", err)
 		return
