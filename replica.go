@@ -38,21 +38,19 @@ func CreateLink(ih torrent.InfoHash, s3upload Upload, filePath []string) string 
 	}.String()
 }
 
-// Storage defines the common API for the cloud object storage
-type Storage interface {
-	Get(endpoint Endpoint, key string) (io.ReadCloser, error)
-	Put(endpoint Endpoint, key string, r io.Reader) error
-	Delete(endpoint Endpoint, key string) error
+// Storage defines the common API for the cloud object storage.
+type StorageClient interface {
+	Get(key string) (io.ReadCloser, error)
+	Put(key string, r io.Reader) error
+	Delete(key string) error
+	// Could we return an Endpoint too? Since all endpoints should be able to be used to construct
+	// StorageClients.
 }
 
 type Client struct {
 	StorageClient
+	Endpoint
 	ServiceClient
-}
-
-type StorageClient struct {
-	Storage  Storage
-	Endpoint Endpoint
 }
 
 type ServiceClient struct {
@@ -61,15 +59,6 @@ type ServiceClient struct {
 	// distinct from other client operations now.
 	ReplicaServiceEndpoint *url.URL
 	HttpClient             *http.Client
-}
-
-func (cl StorageClient) GetObject(key string) (io.ReadCloser, error) {
-	return cl.Storage.Get(cl.Endpoint, key)
-}
-
-// GetMetainfo retrieves the metainfo object for the given prefix from S3.
-func (cl StorageClient) GetMetainfo(s3Prefix Upload) (io.ReadCloser, error) {
-	return cl.Storage.Get(s3Prefix.Endpoint, s3Prefix.TorrentKey())
 }
 
 type UploadOutput struct {
@@ -98,7 +87,7 @@ func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOu
 	var serviceOutput ServiceUploadOutput
 	err = json.Unmarshal(respBodyBytes, &serviceOutput)
 	if err != nil {
-		err = fmt.Errorf("decoding response: %w", err)
+		err = fmt.Errorf("decoding response %q: %w", string(respBodyBytes), err)
 		return
 	}
 	output.Link = &serviceOutput.Link
@@ -164,13 +153,13 @@ func (cl Client) UploadDirectly(read io.Reader, uConfig UploadConfig) (output Up
 	}()
 
 	// Whether we fail or not from this point, the prefix could be useful to the caller.
-	output.Upload = cl.Endpoint.NewUpload(uConfig)
-	err = cl.Storage.Put(cl.Endpoint, output.FileDataKey(uConfig.Filename()), read)
+	output.Upload = NewUpload(uConfig, cl.Endpoint)
+	err = cl.Put(output.FileDataKey(uConfig.Filename()), read)
 	// Synchronize with the piece generation.
 	piecesWriter.CloseWithError(err)
 	<-piecesDone
 	if err != nil {
-		err = fmt.Errorf("uploading to %s: %w", cl.Endpoint.StorageProvider, err)
+		err = fmt.Errorf("uploading to %v: %w", cl.Endpoint, err)
 		return
 	}
 	if piecesErr != nil {
@@ -201,7 +190,7 @@ func (cl Client) UploadDirectly(read io.Reader, uConfig UploadConfig) (output Up
 		err := output.MetaInfo.Write(w)
 		w.CloseWithError(err)
 	}()
-	err = cl.Storage.Put(output.Upload.Endpoint, output.Upload.TorrentKey(), r)
+	err = cl.Put(output.Upload.TorrentKey(), r)
 	if err != nil {
 		err = fmt.Errorf("uploading metainfo: %w", err)
 		return
@@ -257,9 +246,9 @@ func (cl ServiceClient) DeleteUpload(prefix Prefix, auth string, haveMetainfo bo
 // Deletes the S3 file with the given key. TODO: Delete admin token too.
 //
 // Deprecated: Delete via replica-rust instead.
-func (cl *Client) DeleteUploadDirectly(upload Upload, files ...[]string) (errs []error) {
+func (cl Client) DeleteUploadDirectly(upload Upload, files ...[]string) (errs []error) {
 	delete := func(key string) {
-		if err := cl.Storage.Delete(upload.Endpoint, key); err != nil {
+		if err := cl.Delete(key); err != nil {
 			errs = append(errs, fmt.Errorf("deleting %q: %w", key, err))
 		}
 	}

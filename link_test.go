@@ -15,7 +15,7 @@ func TestCreateLink(t *testing.T) {
 	var infoHash torrent.InfoHash
 	filename := "nice name"
 	require.NoError(t, infoHash.FromHexString(infoHashHex))
-	upload := DefaultEndpoint.NewUpload(NewUUIDUploadConfig("", filename))
+	upload := NewUpload(NewUUIDUploadConfig("", filename), DefaultEndpoint)
 	link := CreateLink(infoHash, upload, []string{"nice name"})
 	uuidString := upload.String()
 	require.EqualValues(t,
@@ -27,7 +27,7 @@ func TestCreateLink(t *testing.T) {
 			"so=0", // Not sure if we can rely on the ordering of params, hope so.
 			"ws=https%3A%2F%2Fgetlantern-replica.s3.ap-southeast-1.amazonaws.com%2F" + uuidString + "%2Fdata%2F",
 			"ws=https%3A%2F%2Fs3.ap-southeast-1.amazonaws.com%2Fgetlantern-replica%2F" + uuidString + "%2Fdata%2F",
-			"xs=replica%3A" + uuidString + "%3Fbucket%3Dgetlantern-replica%26region%3Dap-southeast-1",
+			"xs=replica%3A" + uuidString + "%3Fbucket%3Dgetlantern-replica%26provider%3Ds3%26region%3Dap-southeast-1",
 		}, strings.Split(link, "&"))
 }
 

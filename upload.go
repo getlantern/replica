@@ -36,10 +36,8 @@ func (me *Upload) FromExactSource(s string) error {
 
 	query := u.Query()
 
-	endpoint := Endpoint{
-		BucketName: query.Get("bucket"),
-		Region:     query.Get("region"),
-	}
+	// TODO: Handle Tencent provider!
+	endpoint := NewS3Endpoint(query.Get("bucket"), query.Get("region"))
 
 	uploadPrefix := UploadPrefixFromString(u.Opaque)
 
@@ -58,7 +56,7 @@ func (me Upload) FileDataKey(
 }
 
 func (me Upload) mapAppendRootUrls(suffix string) (ret []string) {
-	for _, root := range me.rootUrls() {
+	for _, root := range me.RootUrls() {
 		ret = append(ret, root+suffix)
 	}
 	return
@@ -75,12 +73,9 @@ func (me Upload) MetainfoUrls() []string {
 
 func (me Upload) ExactSource() string {
 	return (&url.URL{
-		Scheme: "replica",
-		Opaque: me.UploadPrefix.String(),
-		RawQuery: url.Values{
-			"bucket": {me.BucketName},
-			"region": {me.Region},
-		}.Encode(),
+		Scheme:   "replica",
+		Opaque:   me.UploadPrefix.String(),
+		RawQuery: me.LinkParams().Encode(),
 	}).String()
 }
 
