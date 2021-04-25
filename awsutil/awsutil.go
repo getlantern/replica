@@ -86,13 +86,13 @@ func (q *Queue) Init() error {
 	q.snsArn = fmt.Sprintf("arn:aws:sns:%s:%s:%s", q.Region, q.AccountId, q.SNSTopicName)
 	queue, err := q.createQueue()
 	if err != nil {
-		return fmt.Errorf("failed to create queue: %v", err)
+		return fmt.Errorf("failed to create queue: %w", err)
 	}
 	q.sqsQueue = queue
 
 	err = q.subscribeQueue(queue.Arn)
 	if err != nil {
-		return fmt.Errorf("failed to subscribe: %v", err)
+		return fmt.Errorf("failed to subscribe: %w", err)
 	}
 	q.initialized = true
 	return nil

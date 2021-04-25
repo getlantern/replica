@@ -5,12 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/aws/aws-sdk-go/service/sns/snsiface"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/sqs/sqsiface"
+	"github.com/stretchr/testify/assert"
 )
 
 func helperLoadBytes(t *testing.T, name string) []byte {
@@ -131,9 +130,10 @@ func TestQueueGetMessage(t *testing.T) {
 	}
 
 	queue := Queue{
-		SQSClient: client,
-		SNSClient: mockedSNSClientSubscribe{},
-		sqsQueue:  &SQSQueue{},
+		SQSClient:   client,
+		SNSClient:   mockedSNSClientSubscribe{},
+		sqsQueue:    &SQSQueue{},
+		initialized: true,
 	}
 
 	if err := queue.GetMessage(handler); err != nil {
