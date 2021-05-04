@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 
@@ -15,16 +13,7 @@ import (
 	"github.com/getlantern/replica"
 )
 
-var s3Client = replica.Client{
-	replica.StorageClient{
-		Storage:  &replica.S3Storage{HttpClient: http.DefaultClient},
-		Endpoint: replica.DefaultEndpoint,
-	},
-	replica.ServiceClient{
-		ReplicaServiceEndpoint: &url.URL{Scheme: "https", Host: "replica-search.lantern.io"},
-		HttpClient:             http.DefaultClient,
-	},
-}
+var s3Client = replica.DefaultClient
 
 func main() {
 	err := mainErr()
@@ -91,7 +80,7 @@ func getTorrent(cmd *cli.Cmd) {
 	cmd.Action = func() {
 		checkAction(func() error {
 			uuid, _ := uuid.Parse(*name)
-			obj, err := s3Client.GetObject(replica.UploadPrefix{replica.UUIDPrefix{uuid}}.TorrentKey())
+			obj, err := s3Client.Get(replica.UploadPrefix{replica.UUIDPrefix{uuid}}.TorrentKey())
 			if err != nil {
 				return err
 			}
