@@ -47,6 +47,7 @@ type StorageClient interface {
 	// StorageClients.
 }
 
+// Provides actions, storage access and link management for uploads.
 type Client struct {
 	StorageClient
 	Endpoint

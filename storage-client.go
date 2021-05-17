@@ -14,9 +14,8 @@ type AnyStorageClientParams struct {
 func StorageClientForEndpoint(e Endpoint, params AnyStorageClientParams) (_ StorageClient, err error) {
 	providerParam := e.LinkParams().Get(ProviderEndpointKey)
 	if providerParam == "" {
-		providerParam = DefaultEndpoint.LinkParams().Get(ProviderEndpointKey)
+		providerParam = StorageProviderS3
 	}
-	DefaultEndpoint.LinkParams()
 	switch providerParam {
 	case StorageProviderS3:
 		return NewS3StorageClient(

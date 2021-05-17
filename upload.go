@@ -231,7 +231,7 @@ func (me *UploadMetainfo) FromTorrentMetainfo(mi *metainfo.MetaInfo) error {
 			// We assume the default endpoint, because that's the one that was in use when this
 			// comment-style was standard. If the default endpoint changes, this should probably be
 			// changed to reflect where "Replica"-comment uploads would now reside.
-			Endpoint: DefaultEndpoint,
+			Endpoint: GlobalChinaRegionParams.UploadEndpoint,
 		}
 		return nil
 	default:

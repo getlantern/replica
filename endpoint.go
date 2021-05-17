@@ -2,7 +2,6 @@ package replica
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 )
 
@@ -15,33 +14,6 @@ const (
 	ProviderEndpointKey = "provider"
 	BucketEndpointKey   = "bucket"
 	RegionEndpointKey   = "region"
-
-	// These should probably be extractable from the default endpoint instead, since that includes
-	// the provider type.
-	DefaultBucket = "getlantern-replica"
-	DefaultRegion = "ap-southeast-1"
-)
-
-var (
-	DefaultHttpClient            = http.DefaultClient
-	DefaultServiceUrl            = &url.URL{Scheme: "https", Host: "replica-search.lantern.io"}
-	DefaultEndpoint              = NewS3Endpoint(DefaultBucket, DefaultRegion)
-	DefaultMetadataEndpoint      = NewS3Endpoint("replica-metadata", "ap-southeast-1")
-	DefaultMetadataStorageClient = func() StorageClient {
-		ret, err := StorageClientForEndpoint(DefaultMetadataEndpoint, AnyStorageClientParams{HttpClient: DefaultHttpClient})
-		if err != nil {
-			panic(err)
-		}
-		return ret
-	}()
-	DefaultClient = Client{
-		StorageClient: NewS3StorageClient(DefaultBucket, DefaultRegion, DefaultHttpClient),
-		Endpoint:      DefaultEndpoint,
-		ServiceClient: ServiceClient{
-			HttpClient:             DefaultHttpClient,
-			ReplicaServiceEndpoint: DefaultServiceUrl,
-		},
-	}
 )
 
 type Endpoint interface {
