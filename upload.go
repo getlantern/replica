@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"path/filepath"
 
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/google/uuid"
@@ -14,7 +13,6 @@ import (
 // Upload is the UUID or provider+id prefix used on cloud object storage to group objects related to an upload.
 type Upload struct {
 	UploadPrefix
-	Endpoint
 }
 
 // See CreateLink.
@@ -34,110 +32,27 @@ func (me *Upload) FromExactSource(s string) error {
 		return errors.New("exact source url opaque value must not be empty")
 	}
 
-	query := u.Query()
-
-	// TODO: Handle Tencent provider!
-	endpoint := NewS3Endpoint(query.Get("bucket"), query.Get("region"))
-
 	uploadPrefix := UploadPrefixFromString(u.Opaque)
 
 	*me = Upload{
 		UploadPrefix: uploadPrefix,
-		Endpoint:     endpoint,
 	}
 	return nil
 }
 
 func (me Upload) FileDataKey(
+	prefix string,
 	// These are the path components per "github.com/anacrolix/torrent/metainfo".Info.Files.Path
 	filePathComps ...string,
 ) string {
-	return path.Join(append([]string{me.DataKey(), me.PrefixString()}, filePathComps...)...)
+	return path.Join(append([]string{DataKey(prefix), me.PrefixString()}, filePathComps...)...)
 }
 
-func (me Upload) mapAppendRootUrls(suffix string) (ret []string) {
-	for _, root := range me.RootUrls() {
-		ret = append(ret, root+suffix)
-	}
-	return
-}
-
-func (me Upload) WebseedUrls() []string {
-	return me.mapAppendRootUrls(fmt.Sprintf("/%s/", me.DataKey()))
-}
-
-func (me Upload) MetainfoUrls() []string {
-	return me.mapAppendRootUrls(fmt.Sprintf("/%s", me.TorrentKey()))
-
-}
-
-func (me Upload) ExactSource() string {
+func ExactSource(p Prefix) string {
 	return (&url.URL{
-		Scheme:   "replica",
-		Opaque:   me.UploadPrefix.String(),
-		RawQuery: me.LinkParams().Encode(),
+		Scheme: "replica",
+		Opaque: p.PrefixString(),
 	}).String()
-}
-
-// UploadConfig provides config information for the upload
-type UploadConfig interface {
-	Filename() string
-	FullPath() string
-	GetPrefix() UploadPrefix
-}
-
-// ProviderUploadConfig is a type of UploadConfig which has the format of provider + id prefix
-type ProviderUploadConfig struct {
-	File       string
-	ProviderID string
-	Name       string
-}
-
-func (pc *ProviderUploadConfig) FullPath() string {
-	return pc.File
-}
-
-func (pc *ProviderUploadConfig) Filename() string {
-	if pc.Name != "" {
-		return pc.Name
-	}
-	return filepath.Base(pc.File)
-}
-
-func (pc *ProviderUploadConfig) GetPrefix() UploadPrefix {
-	return UploadPrefix{ProviderPrefix{
-		providerID: pc.ProviderID,
-	}}
-}
-
-type uuidUploadConfig struct {
-	file string
-	uuid uuid.UUID
-	name string
-}
-
-// NewUUIDUploadConfig creates a new uuidUploadConfig which implements the UploadConfig interface
-// The first parameter f will be used strictly for potentially opening a local file and can be left blank
-// The second parameter n will be used as the name of the upload. If it is left blank, the name of the
-// upload will come from the first parameter's "base" name
-func NewUUIDUploadConfig(f, n string) *uuidUploadConfig {
-	u := uuid.New()
-	return &uuidUploadConfig{file: f, uuid: u, name: n}
-}
-
-func (uc *uuidUploadConfig) FullPath() string {
-	return uc.file
-}
-
-func (uc *uuidUploadConfig) Filename() string {
-	if uc.name != "" {
-		return uc.name
-	}
-	return filepath.Base(uc.file)
-}
-
-func (uc *uuidUploadConfig) GetPrefix() UploadPrefix {
-	return UploadPrefix{UUIDPrefix{uc.uuid}}
 }
 
 type UploadPrefix struct {
@@ -150,6 +65,10 @@ type Prefix interface {
 
 type UUIDPrefix struct {
 	uuid.UUID
+}
+
+func NewUuidPrefix() UUIDPrefix {
+	return UUIDPrefix{uuid.New()}
 }
 
 func (me UUIDPrefix) PrefixString() string {
@@ -184,12 +103,12 @@ func (me UploadPrefix) String() string {
 }
 
 // TorrentKey returns the key where the metainfo for the data directory should be stored.
-func (me UploadPrefix) TorrentKey() string {
-	return path.Join(me.PrefixString(), "torrent")
+func TorrentKey(prefix string) string {
+	return path.Join(prefix, "torrent")
 }
 
-func (me UploadPrefix) DataKey() string {
-	return path.Join(me.PrefixString(), "data")
+func DataKey(prefix string) string {
+	return path.Join(prefix, "data")
 }
 
 // Wraps an upload metainfo.Metainfo with Replica-related values parsed out.
@@ -228,10 +147,6 @@ func (me *UploadMetainfo) FromTorrentMetainfo(mi *metainfo.MetaInfo) error {
 		}
 		me.Upload = Upload{
 			UploadPrefix: UploadPrefix{UUIDPrefix{u}},
-			// We assume the default endpoint, because that's the one that was in use when this
-			// comment-style was standard. If the default endpoint changes, this should probably be
-			// changed to reflect where "Replica"-comment uploads would now reside.
-			Endpoint: GlobalChinaRegionParams.UploadEndpoint,
 		}
 		return nil
 	default:

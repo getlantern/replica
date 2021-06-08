@@ -12,46 +12,26 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"time"
 
 	_ "github.com/anacrolix/envpprof"
 	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 )
 
-func CreateLink(ih torrent.InfoHash, s3upload Upload, filePath []string) string {
+func CreateLink(ih torrent.InfoHash, s3upload Prefix, filePath []string) string {
 	return metainfo.Magnet{
 		InfoHash:    ih,
 		DisplayName: path.Join(filePath...),
 		Params: url.Values{
-			"as": s3upload.MetainfoUrls(),
-			"xs": {s3upload.ExactSource()},
+			"xs": {ExactSource(s3upload)},
 			// This might technically be more correct, but I couldn't find any torrent client that
 			// supports it. Make sure to change any assumptions about "xs" before changing it.
 			//"xs": {fmt.Sprintf("https://getlantern-replica.s3-ap-southeast-1.amazonaws.com/%s/torrent", s3upload)},
 
 			// Since S3 key is provided, we know that it must be a single-file torrent.
 			"so": {"0"},
-			"ws": s3upload.WebseedUrls(),
 		},
 	}.String()
-}
-
-// Storage defines the common API for the cloud object storage.
-type StorageClient interface {
-	Get(key string) (io.ReadCloser, error)
-	Put(key string, r io.Reader) error
-	Delete(key string) error
-	// Could we return an Endpoint too? Since all endpoints should be able to be used to construct
-	// StorageClients.
-}
-
-// Provides actions, storage access and link management for uploads.
-type Client struct {
-	StorageClient
-	Endpoint
-	ServiceClient
 }
 
 type ServiceClient struct {
@@ -128,79 +108,8 @@ func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOu
 	return
 }
 
-// Deprecated: Uploads directly to storage in Go are now unsupported. Use an intermediary service
-// like replica-rust for this. Uploading with custom endpoints/non-UUID prefixes may be an exception
-// for now.
-//
-// Upload creates a new Replica object from the Reader with the given name. Returns the replica
-// magnet link.
-func (cl Client) UploadDirectly(read io.Reader, uConfig UploadConfig) (output UploadOutput, err error) {
-	piecesReader, piecesWriter := io.Pipe()
-	read = io.TeeReader(read, piecesWriter)
-
-	var cw CountWriter
-	read = io.TeeReader(read, &cw)
-	// 256 KiB is what s3 would use. We want to balance chunks per piece, metainfo size, and having
-	// too many pieces. This can be changed any time, since it only affects future metainfos.
-	const pieceLength = 1 << 18
-	var (
-		pieces     []byte
-		piecesErr  error
-		piecesDone = make(chan struct{})
-	)
-	go func() {
-		defer close(piecesDone)
-		pieces, piecesErr = metainfo.GeneratePieces(piecesReader, pieceLength, nil)
-	}()
-
-	// Whether we fail or not from this point, the prefix could be useful to the caller.
-	output.Upload = NewUpload(uConfig, cl.Endpoint)
-	err = cl.Put(output.FileDataKey(uConfig.Filename()), read)
-	// Synchronize with the piece generation.
-	piecesWriter.CloseWithError(err)
-	<-piecesDone
-	if err != nil {
-		err = fmt.Errorf("uploading to %v: %w", cl.Endpoint, err)
-		return
-	}
-	if piecesErr != nil {
-		err = fmt.Errorf("generating metainfo pieces: %w", piecesErr)
-		return
-	}
-
-	output.Info = metainfo.Info{
-		PieceLength: pieceLength,
-		Name:        output.Upload.String(),
-		Pieces:      pieces,
-		Files: []metainfo.FileInfo{
-			{Length: cw.BytesWritten, Path: []string{uConfig.Filename()}},
-		},
-	}
-	infoBytes, err := bencode.Marshal(output.Info)
-	if err != nil {
-		panic(err)
-	}
-	output.MetaInfo = &metainfo.MetaInfo{
-		InfoBytes:    infoBytes,
-		CreationDate: time.Now().Unix(),
-		Comment:      output.Upload.ExactSource(),
-		UrlList:      output.Upload.WebseedUrls(),
-	}
-	r, w := io.Pipe()
-	go func() {
-		err := output.MetaInfo.Write(w)
-		w.CloseWithError(err)
-	}()
-	err = cl.Put(output.Upload.TorrentKey(), r)
-	if err != nil {
-		err = fmt.Errorf("uploading metainfo: %w", err)
-		return
-	}
-	return
-}
-
 // UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (cl Client) UploadFile(fileName, uploadedAsName string) (_ UploadOutput, err error) {
+func (cl ServiceClient) UploadFile(fileName, uploadedAsName string) (_ UploadOutput, err error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		err = fmt.Errorf("opening file: %w", err)
@@ -208,17 +117,6 @@ func (cl Client) UploadFile(fileName, uploadedAsName string) (_ UploadOutput, er
 	}
 	defer f.Close()
 	return cl.Upload(f, uploadedAsName)
-}
-
-// UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (cl Client) UploadFileDirectly(uConfig UploadConfig) (_ UploadOutput, err error) {
-	f, err := os.Open(uConfig.FullPath())
-	if err != nil {
-		err = fmt.Errorf("opening file %q: %w", uConfig.FullPath(), err)
-		return
-	}
-	defer f.Close()
-	return cl.UploadDirectly(f, uConfig)
 }
 
 func (cl ServiceClient) DeleteUpload(prefix Prefix, auth string, haveMetainfo bool) error {
@@ -242,22 +140,6 @@ func (cl ServiceClient) DeleteUpload(prefix Prefix, auth string, haveMetainfo bo
 		return fmt.Errorf("unexpected response: %q", resp.Status)
 	}
 	return nil
-}
-
-// Deletes the S3 file with the given key. TODO: Delete admin token too.
-//
-// Deprecated: Delete via replica-rust instead.
-func (cl Client) DeleteUploadDirectly(upload Upload, files ...[]string) (errs []error) {
-	delete := func(key string) {
-		if err := cl.Delete(key); err != nil {
-			errs = append(errs, fmt.Errorf("deleting %q: %w", key, err))
-		}
-	}
-	delete(upload.TorrentKey())
-	for _, f := range files {
-		delete(upload.FileDataKey(path.Join(f...)))
-	}
-	return errs
 }
 
 type IteredUpload struct {
