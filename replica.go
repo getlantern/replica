@@ -24,10 +24,6 @@ func CreateLink(ih torrent.InfoHash, s3upload Prefix, filePath []string) string 
 		DisplayName: path.Join(filePath...),
 		Params: url.Values{
 			"xs": {ExactSource(s3upload)},
-			// This might technically be more correct, but I couldn't find any torrent client that
-			// supports it. Make sure to change any assumptions about "xs" before changing it.
-			//"xs": {fmt.Sprintf("https://getlantern-replica.s3-ap-southeast-1.amazonaws.com/%s/torrent", s3upload)},
-
 			// Since S3 key is provided, we know that it must be a single-file torrent.
 			"so": {"0"},
 		},
@@ -35,9 +31,7 @@ func CreateLink(ih torrent.InfoHash, s3upload Prefix, filePath []string) string 
 }
 
 type ServiceClient struct {
-	// This should be a URL to handle uploads. The specifics are in replica-rust. It's not clear how
-	// this might relate to other operations that would use Endpoint at present. Uploading might be
-	// distinct from other client operations now.
+	// This should be a URL to handle uploads. The specifics are in replica-rust.
 	ReplicaServiceEndpoint *url.URL
 	HttpClient             *http.Client
 }
