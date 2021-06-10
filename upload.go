@@ -48,10 +48,10 @@ func (me Upload) FileDataKey(
 	return path.Join(append([]string{DataKey(prefix), me.PrefixString()}, filePathComps...)...)
 }
 
-func ExactSource(p Prefix) string {
+func ExactSource(infoName Prefix) string {
 	return (&url.URL{
 		Scheme: "replica",
-		Opaque: p.PrefixString(),
+		Opaque: infoName.PrefixString(),
 	}).String()
 }
 

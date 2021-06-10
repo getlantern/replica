@@ -18,12 +18,12 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 )
 
-func CreateLink(ih torrent.InfoHash, s3upload Prefix, filePath []string) string {
+func CreateLink(ih torrent.InfoHash, infoName Prefix, filePath []string) string {
 	return metainfo.Magnet{
 		InfoHash:    ih,
 		DisplayName: path.Join(filePath...),
 		Params: url.Values{
-			"xs": {ExactSource(s3upload)},
+			"xs": {ExactSource(infoName)},
 			// Since S3 key is provided, we know that it must be a single-file torrent.
 			"so": {"0"},
 		},
