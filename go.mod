@@ -8,10 +8,6 @@ require (
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/frankban/quicktest v1.11.3
 	github.com/google/uuid v1.1.1
-	github.com/jawher/mow.cli v1.1.0
 	github.com/leanovate/gopter v0.2.9
-	github.com/mozillazg/go-cos v0.13.0
-	github.com/skratchdot/open-golang v0.0.0-20190402232053-79abb63cd66e
 	github.com/stretchr/testify v1.5.1
-	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 )

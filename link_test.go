@@ -13,21 +13,16 @@ import (
 func TestCreateLink(t *testing.T) {
 	const infoHashHex = "deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee"
 	var infoHash torrent.InfoHash
-	filename := "nice name"
 	require.NoError(t, infoHash.FromHexString(infoHashHex))
-	upload := NewUpload(NewUUIDUploadConfig("", filename), DefaultEndpoint)
+	upload := NewUuidPrefix()
 	link := CreateLink(infoHash, upload, []string{"nice name"})
 	uuidString := upload.String()
 	require.EqualValues(t,
 		[]string{
 			"magnet:?xt=urn:btih:deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee",
-			"as=https%3A%2F%2Fgetlantern-replica.s3.ap-southeast-1.amazonaws.com%2F" + uuidString + "%2Ftorrent",
-			"as=https%3A%2F%2Fs3.ap-southeast-1.amazonaws.com%2Fgetlantern-replica%2F" + uuidString + "%2Ftorrent",
 			"dn=nice+name",
 			"so=0", // Not sure if we can rely on the ordering of params, hope so.
-			"ws=https%3A%2F%2Fgetlantern-replica.s3.ap-southeast-1.amazonaws.com%2F" + uuidString + "%2Fdata%2F",
-			"ws=https%3A%2F%2Fs3.ap-southeast-1.amazonaws.com%2Fgetlantern-replica%2F" + uuidString + "%2Fdata%2F",
-			"xs=replica%3A" + uuidString + "%3Fbucket%3Dgetlantern-replica%26provider%3Ds3%26region%3Dap-southeast-1",
+			"xs=replica%3A" + uuidString,
 		}, strings.Split(link, "&"))
 }
 
