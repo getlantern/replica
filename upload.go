@@ -17,7 +17,7 @@ type Upload struct {
 
 // See CreateLink.
 func (upload *Upload) FromMagnet(m metainfo.Magnet) error {
-	return upload.FromExactSource(m.Params.Get("xs"))
+	return upload.FromExactSource("replica:" + m.InfoHash.HexString())
 }
 
 // Parses the content of the "xs" magnet link field, which is also the metainfo "comment" field in
