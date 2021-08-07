@@ -10,4 +10,5 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/leanovate/gopter v0.2.9
 	github.com/stretchr/testify v1.5.1
+	github.com/vektra/mockery/v2 v2.9.0 // indirect
 )

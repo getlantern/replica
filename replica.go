@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -32,7 +33,7 @@ func CreateLink(ih torrent.InfoHash, infoName Prefix, filePath []string) string 
 
 type ServiceClient struct {
 	// This should be a URL to handle uploads. The specifics are in replica-rust.
-	ReplicaServiceEndpoint *url.URL
+	ReplicaServiceEndpoint *DynamicEndpoint
 	HttpClient             *http.Client
 }
 
@@ -133,6 +134,12 @@ func (cl ServiceClient) DeleteUpload(prefix Prefix, auth string, haveMetainfo bo
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected response: %q", resp.Status)
 	}
+	respBodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("reading all response body bytes: %w", err)
+		return err
+	}
+	log.Printf("RESP: %q\n", respBodyBytes)
 	return nil
 }
 
