@@ -14,7 +14,6 @@ import (
 	"path"
 	"path/filepath"
 
-	_ "github.com/anacrolix/envpprof"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 )
