@@ -94,7 +94,9 @@ func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOu
 		err = fmt.Errorf("parsing response replica link: %w", err)
 		return
 	}
-	err = output.Upload.FromMagnet(m)
+	// err = output.Upload.FromMagnet(m)
+	// err = output.Upload.FromMagnet(m)
+	output.Upload, err = NewUploadFromMagnetLink(m)
 	if err != nil {
 		err = fmt.Errorf("extracting upload specifics from response replica link: %w", err)
 		return
@@ -160,13 +162,12 @@ func IterUploads(dir string, f func(IteredUpload)) error {
 			f(IteredUpload{Err: fmt.Errorf("loading metainfo from file %q: %w", p, err)})
 			continue
 		}
-		var umi UploadMetainfo
-		err = umi.FromTorrentMetainfo(mi)
+		uploadMetainfo, err := NewUploadMetainfo(mi)
 		if err != nil {
 			f(IteredUpload{Err: fmt.Errorf("unwrapping upload metainfo from file %q: %w", p, err)})
 			continue
 		}
-		f(IteredUpload{Metainfo: umi, FileInfo: e})
+		f(IteredUpload{Metainfo: uploadMetainfo, FileInfo: e})
 	}
 	return nil
 }

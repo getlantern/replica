@@ -1,7 +1,6 @@
 package replica
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 	"path"
@@ -16,28 +15,23 @@ type Upload struct {
 }
 
 // See CreateLink.
-func (upload *Upload) FromMagnet(m metainfo.Magnet) error {
-	return upload.FromExactSource(m.Params.Get("xs"))
+func NewUploadFromMagnetLink(m metainfo.Magnet) (Upload, error) {
+	// FIXME
+	// return NewUploadFromExactSource("replica:" + m.InfoHash.HexString())
+	return NewUploadFromExactSource(m.Params.Get("xs"))
 }
 
-// Parses the content of the "xs" magnet link field, which is also the metainfo "comment" field in
-// newer uploads.
-func (me *Upload) FromExactSource(s string) error {
+// Parses the content of the "xs" magnet link field, which is also the metainfo
+// "comment" field in newer uploads.
+func NewUploadFromExactSource(s string) (Upload, error) {
 	u, err := url.Parse(s)
 	if err != nil {
-		return fmt.Errorf("parsing url: %w", err)
+		return Upload{}, fmt.Errorf("parsing url: %w", err)
 	}
-
 	if u.Opaque == "" {
-		return errors.New("exact source url opaque value must not be empty")
+		return Upload{}, fmt.Errorf("exact source url opaque value must not be empty")
 	}
-
-	uploadPrefix := UploadPrefixFromString(u.Opaque)
-
-	*me = Upload{
-		UploadPrefix: uploadPrefix,
-	}
-	return nil
+	return Upload{UploadPrefix: NewUploadPrefixFromString(u.Opaque)}, nil
 }
 
 func (me Upload) FileDataKey(
@@ -83,9 +77,10 @@ func (me ProviderPrefix) PrefixString() string {
 	return me.providerID
 }
 
-// UploadPrefixFromString creates a ProviderPrefix or a UUIDPrefix depending on
-// the format of the provided string
-func UploadPrefixFromString(s string) UploadPrefix {
+// NewUploadPrefixFromString creates a ProviderPrefix or a UUIDPrefix depending
+// on the format of the provided string
+// FIXME remove this UUIDPrefix business
+func NewUploadPrefixFromString(s string) UploadPrefix {
 	var uploadPrefix UploadPrefix
 
 	uuid, err := uuid.Parse(s)
@@ -121,37 +116,20 @@ type UploadMetainfo struct {
 	Upload
 }
 
-func (me *UploadMetainfo) FromTorrentMetainfo(mi *metainfo.MetaInfo) error {
+// NewUploadMetainfo creates a new uploadMetainfo from metainfo
+func NewUploadMetainfo(mi *metainfo.MetaInfo) (UploadMetainfo, error) {
 	info, err := mi.UnmarshalInfo()
 	if err != nil {
-		return fmt.Errorf("unmarshalling info: %w", err)
+		return UploadMetainfo{}, fmt.Errorf("unmarshalling info: %w", err)
 	}
 	if len(info.UpvertedFiles()) != 1 {
-		return errors.New("expected single file")
+		return UploadMetainfo{}, fmt.Errorf("expected single file")
 	}
-	*me = UploadMetainfo{
+	return UploadMetainfo{
 		MetaInfo: mi,
 		Info:     info,
-	}
-	switch mi.Comment {
-	//case "":
-	//// There should be *no* torrent uploads with no comment. However if it did happen, we could
-	//// recover if the torrent name was a UUID. A provider would accept any string, so it's not clear
-	//// if we want to follow that as a possibility.
-	//fallthrough
-	case "Replica":
-		// A long time ago, we uploaded with this as the comment, and there were only UUID prefixes.
-		u, err := uuid.Parse(info.Name)
-		if err != nil {
-			return fmt.Errorf("parsing uuid from info name: %w", err)
-		}
-		me.Upload = Upload{
-			UploadPrefix: UploadPrefix{UUIDPrefix{u}},
-		}
-		return nil
-	default:
-	}
-	return me.Upload.FromExactSource(mi.Comment)
+		Upload:   Upload{NewUploadPrefixFromString(mi.HashInfoBytes().HexString())},
+	}, nil
 }
 
 func (me UploadMetainfo) FilePath() []string {

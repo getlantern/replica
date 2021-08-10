@@ -31,7 +31,7 @@ func TestCreateLink(t *testing.T) {
 func TestS3PrefixFromMagnetMissingXs(t *testing.T) {
 	m, err := metainfo.ParseMagnetURI("magnet:?xt=urn:btih:b84d0051d6cc64eb48bf8c47dd44320f69c17544&dn=Test+Drive+Unlimited+ReincarnaTion%2FTest+Drive+Unlimited+ReincarnaTion.exe&so=0")
 	require.NoError(t, err)
-	err = new(Upload).FromMagnet(m)
+	_, err = NewUploadFromMagnetLink(m)
 	require.Error(t, err)
 }
 
@@ -40,10 +40,10 @@ func TestS3PrefixFromMagnetMissingXs(t *testing.T) {
 func TestS3KeyFromReplicaMagnetOpaqueKey(t *testing.T) {
 	m, err := metainfo.ParseMagnetURI("magnet:?xt=urn:btih:bee25d279cb0ac33b13ec6c35ab5128e8a0279f6&as=https%3A%2F%2Fs3.ap-southeast-1.amazonaws.com%2Fgetlantern-replica%2F4cfacbd0-811c-4319-9d57-87c484c14814%2Fhornady.pdf&dn=hornady.pdf&tr=http%3A%2F%2Fs3-tracker.ap-southeast-1.amazonaws.com%3A6969%2Fannounce&xs=replica%3A4cfacbd0-811c-4319-9d57-87c484c14814&so=0")
 	require.NoError(t, err)
-	u, _ := url.Parse(m.Params.Get("xs"))
+	u, err := url.Parse(m.Params.Get("xs"))
+	require.NoError(t, err)
 	t.Logf("%#v", u)
-	var s3Key Upload
-	err = s3Key.FromMagnet(m)
+	s3Key, err := NewUploadFromMagnetLink(m)
 	require.NoError(t, err)
 	require.EqualValues(t, "4cfacbd0-811c-4319-9d57-87c484c14814", s3Key.String())
 }
