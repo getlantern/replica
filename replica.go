@@ -32,8 +32,8 @@ func CreateLink(ih torrent.InfoHash, infoName Prefix, filePath []string) string 
 
 type ServiceClient struct {
 	// This should be a URL to handle uploads. The specifics are in replica-rust.
-	ReplicaServiceEndpoint *url.URL
-	HttpClient             *http.Client
+	FetchReplicaServiceEndpointFunc func() *url.URL
+	HttpClient                      *http.Client
 }
 
 type UploadOutput struct {
@@ -42,8 +42,12 @@ type UploadOutput struct {
 	Link      *string
 }
 
-func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOutput, err error) {
-	req, err := http.NewRequest(http.MethodPut, serviceUploadUrl(cl.ReplicaServiceEndpoint, fileName).String(), read)
+func (cl ServiceClient) Upload(
+	read io.Reader,
+	fileName string) (output UploadOutput, err error) {
+	req, err := http.NewRequest(
+		http.MethodPut,
+		serviceUploadUrl(cl.FetchReplicaServiceEndpointFunc, fileName).String(), read)
 	if err != nil {
 		err = fmt.Errorf("creating put request: %w", err)
 		return
@@ -123,7 +127,7 @@ func (cl ServiceClient) DeleteUpload(prefix Prefix, auth string, haveMetainfo bo
 		data["have_metainfo"] = []string{"true"}
 	}
 	resp, err := cl.HttpClient.PostForm(
-		serviceDeleteUrl(cl.ReplicaServiceEndpoint).String(),
+		serviceDeleteUrl(cl.FetchReplicaServiceEndpointFunc).String(),
 		data,
 	)
 	if err != nil {
