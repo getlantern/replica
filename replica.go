@@ -32,7 +32,7 @@ func CreateLink(ih torrent.InfoHash, infoName Prefix, filePath []string) string 
 
 type ServiceClient struct {
 	// This should be a URL to handle uploads. The specifics are in replica-rust.
-	ReplicaServiceEndpoint *url.URL
+	ReplicaServiceEndpoint func() *url.URL
 	HttpClient             *http.Client
 }
 
