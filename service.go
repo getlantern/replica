@@ -21,10 +21,10 @@ type ServiceUploadOutput struct {
 }
 
 // Completes the upload endpoint URL with the file-name, per the replica-rust upload endpoint API.
-func serviceUploadUrl(base *url.URL, fileName string) *url.URL {
-	return base.ResolveReference(&url.URL{Path: path.Join("upload", fileName)})
+func serviceUploadUrl(base func() *url.URL, fileName string) *url.URL {
+	return base().ResolveReference(&url.URL{Path: path.Join("upload", fileName)})
 }
 
-func serviceDeleteUrl(base *url.URL) *url.URL {
-	return base.ResolveReference(&url.URL{Path: "delete"})
+func serviceDeleteUrl(base func() *url.URL) *url.URL {
+	return base().ResolveReference(&url.URL{Path: "delete"})
 }
