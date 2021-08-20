@@ -154,6 +154,9 @@ func IterUploads(dir string, f func(IteredUpload)) error {
 		return err
 	}
 	for _, e := range entries {
+		if filepath.Ext(e.Name()) != ".torrent" {
+			continue
+		}
 		p := filepath.Join(dir, e.Name())
 		mi, err := metainfo.LoadFromFile(p)
 		if err != nil {
