@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/google/uuid"
 )
 
-// Upload is the UUID or provider+id prefix used on cloud object storage to group objects related to an upload.
+// Upload is information pertaining to a torrent uploaded to Replica.
 type Upload struct {
 	UploadPrefix
 }
@@ -55,51 +57,29 @@ func ExactSource(infoName Prefix) string {
 	}).String()
 }
 
+// UploadPrefix is a prefix specific to a Replica upload (probably a bit unnecessary now).
 type UploadPrefix struct {
 	Prefix
 }
 
-type Prefix interface {
-	PrefixString() string
+// Prefix is the identifying first directory component for the Replica S3 key layout.
+type Prefix string
+
+func NewUuidPrefix() Prefix {
+	return Prefix(uuid.New().String())
 }
 
-type UUIDPrefix struct {
-	uuid.UUID
+func (p Prefix) PrefixString() string {
+	return string(p)
 }
 
-func NewUuidPrefix() UUIDPrefix {
-	return UUIDPrefix{uuid.New()}
+func (p Prefix) String() string {
+	return string(p)
 }
 
-func (me UUIDPrefix) PrefixString() string {
-	return me.UUID.String()
-}
-
-type ProviderPrefix struct {
-	providerID string
-}
-
-func (me ProviderPrefix) PrefixString() string {
-	return me.providerID
-}
-
-// UploadPrefixFromString creates a ProviderPrefix or a UUIDPrefix depending on
-// the format of the provided string
+// TODO: Could do checks to ensure prefixes are now infohashes.
 func UploadPrefixFromString(s string) UploadPrefix {
-	var uploadPrefix UploadPrefix
-
-	uuid, err := uuid.Parse(s)
-	if err == nil {
-		uploadPrefix = UploadPrefix{UUIDPrefix{uuid}}
-	} else {
-		uploadPrefix = UploadPrefix{ProviderPrefix{s}}
-	}
-
-	return uploadPrefix
-}
-
-func (me UploadPrefix) String() string {
-	return me.PrefixString()
+	return UploadPrefix{Prefix(s)}
 }
 
 // TorrentKey returns the key where the metainfo for the data directory should be stored.
@@ -121,7 +101,7 @@ type UploadMetainfo struct {
 	Upload
 }
 
-func (me *UploadMetainfo) FromTorrentMetainfo(mi *metainfo.MetaInfo) error {
+func (me *UploadMetainfo) FromTorrentMetainfo(mi *metainfo.MetaInfo, fileName string) error {
 	info, err := mi.UnmarshalInfo()
 	if err != nil {
 		return fmt.Errorf("unmarshalling info: %w", err)
@@ -132,26 +112,11 @@ func (me *UploadMetainfo) FromTorrentMetainfo(mi *metainfo.MetaInfo) error {
 	*me = UploadMetainfo{
 		MetaInfo: mi,
 		Info:     info,
+		// Note that here we are passing the *file stem* as the prefix, to match with the upload
+		// admin token in the user's upload directory.
+		Upload: Upload{UploadPrefix{Prefix(strings.TrimSuffix(fileName, filepath.Ext(fileName)))}},
 	}
-	switch mi.Comment {
-	//case "":
-	//// There should be *no* torrent uploads with no comment. However if it did happen, we could
-	//// recover if the torrent name was a UUID. A provider would accept any string, so it's not clear
-	//// if we want to follow that as a possibility.
-	//fallthrough
-	case "Replica":
-		// A long time ago, we uploaded with this as the comment, and there were only UUID prefixes.
-		u, err := uuid.Parse(info.Name)
-		if err != nil {
-			return fmt.Errorf("parsing uuid from info name: %w", err)
-		}
-		me.Upload = Upload{
-			UploadPrefix: UploadPrefix{UUIDPrefix{u}},
-		}
-		return nil
-	default:
-	}
-	return me.Upload.FromExactSource(mi.Comment)
+	return nil
 }
 
 func (me UploadMetainfo) FilePath() []string {

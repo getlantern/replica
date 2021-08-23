@@ -144,7 +144,7 @@ type IteredUpload struct {
 
 // IterUploads walks the torrent files (UUID-uploads?) stored in the directory. This is specific to
 // the replica desktop server, except that maybe there is replica-project specific stuff to extract
-// from metainfos etc.
+// from metainfos etc. The prefixes are the upload file stems.
 func IterUploads(dir string, f func(IteredUpload)) error {
 	entries, err := ioutil.ReadDir(dir)
 	if os.IsNotExist(err) {
@@ -164,7 +164,8 @@ func IterUploads(dir string, f func(IteredUpload)) error {
 			continue
 		}
 		var umi UploadMetainfo
-		err = umi.FromTorrentMetainfo(mi)
+		// This should really be a new method that assumes to be loading from a file name.
+		err = umi.FromTorrentMetainfo(mi, e.Name())
 		if err != nil {
 			f(IteredUpload{Err: fmt.Errorf("unwrapping upload metainfo from file %q: %w", p, err)})
 			continue
