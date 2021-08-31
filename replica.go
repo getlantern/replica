@@ -48,6 +48,7 @@ func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOu
 		err = fmt.Errorf("creating put request: %w", err)
 		return
 	}
+	req.Header.Set("Accept", "application/json, text/plain, text/html;q=0")
 	resp, err := cl.HttpClient.Do(req)
 	if err != nil {
 		err = fmt.Errorf("doing request: %w", err)
@@ -57,6 +58,11 @@ func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOu
 	respBodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		err = fmt.Errorf("reading all response body bytes: %w", err)
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("got unexpected status code %v for response %q",
+			resp.StatusCode, respBodyBytes)
 		return
 	}
 	var serviceOutput ServiceUploadOutput
