@@ -42,14 +42,6 @@ func (me *Upload) FromExactSource(s string) error {
 	return nil
 }
 
-func (me Upload) FileDataKey(
-	prefix string,
-	// These are the path components per "github.com/anacrolix/torrent/metainfo".Info.Files.Path
-	filePathComps ...string,
-) string {
-	return path.Join(append([]string{DataKey(prefix), me.PrefixString()}, filePathComps...)...)
-}
-
 func ExactSource(infoName Prefix) string {
 	return (&url.URL{
 		Scheme: "replica",
