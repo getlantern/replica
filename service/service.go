@@ -1,4 +1,4 @@
-package replica
+package service
 
 import (
 	"bytes"
@@ -11,35 +11,14 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 
-	_ "github.com/anacrolix/envpprof"
-	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 )
-
-func CreateLink(ih torrent.InfoHash, infoName Prefix, filePath []string) string {
-	return metainfo.Magnet{
-		InfoHash:    ih,
-		DisplayName: path.Join(filePath...),
-		Params: url.Values{
-			"xs": {ExactSource(infoName)},
-			// Since S3 key is provided, we know that it must be a single-file torrent.
-			"so": {"0"},
-		},
-	}.String()
-}
 
 type ServiceClient struct {
 	// This should be a URL to handle uploads. The specifics are in replica-rust.
 	ReplicaServiceEndpoint func() *url.URL
 	HttpClient             *http.Client
-}
-
-type UploadOutput struct {
-	UploadMetainfo
-	AuthToken *string
-	Link      *string
 }
 
 func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOutput, err error) {
@@ -142,41 +121,26 @@ func (cl ServiceClient) DeleteUpload(prefix Prefix, auth string, haveMetainfo bo
 	return nil
 }
 
-type IteredUpload struct {
-	Metainfo UploadMetainfo
-	FileInfo os.FileInfo
-	Err      error
+// This exists for anything that doesn't have configuration but expects to connect to an arbitrary
+// replica-rust service. At least in flashlight, this is provided by configuration instead.
+var GlobalChinaDefaultServiceUrl = &url.URL{
+	Scheme: "https",
+	Host:   "replica-search.lantern.io",
 }
 
-// IterUploads walks the torrent files (UUID-uploads?) stored in the directory. This is specific to
-// the replica desktop server, except that maybe there is replica-project specific stuff to extract
-// from metainfos etc. The prefixes are the upload file stems.
-func IterUploads(dir string, f func(IteredUpload)) error {
-	entries, err := ioutil.ReadDir(dir)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		if filepath.Ext(e.Name()) != ".torrent" {
-			continue
-		}
-		p := filepath.Join(dir, e.Name())
-		mi, err := metainfo.LoadFromFile(p)
-		if err != nil {
-			f(IteredUpload{Err: fmt.Errorf("loading metainfo from file %q: %w", p, err)})
-			continue
-		}
-		var umi UploadMetainfo
-		// This should really be a new method that assumes to be loading from a file name.
-		err = umi.FromTorrentMetainfo(mi, e.Name())
-		if err != nil {
-			f(IteredUpload{Err: fmt.Errorf("unwrapping upload metainfo from file %q: %w", p, err)})
-			continue
-		}
-		f(IteredUpload{Metainfo: umi, FileInfo: e})
-	}
-	return nil
+// Interface to the replica-rust/"Replica service".
+
+type ServiceUploadOutput struct {
+	Link       string `json:"link"`
+	Metainfo   string `json:"metainfo"`
+	AdminToken string `json:"admin_token"`
+}
+
+// Completes the upload endpoint URL with the file-name, per the replica-rust upload endpoint API.
+func serviceUploadUrl(base func() *url.URL, fileName string) *url.URL {
+	return base().ResolveReference(&url.URL{Path: path.Join("upload", fileName)})
+}
+
+func serviceDeleteUrl(base func() *url.URL) *url.URL {
+	return base().ResolveReference(&url.URL{Path: "delete"})
 }

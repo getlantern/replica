@@ -1,4 +1,4 @@
-package replica
+package service
 
 import (
 	"net/url"
