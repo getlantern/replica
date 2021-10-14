@@ -1,6 +1,6 @@
 module github.com/getlantern/replica
 
-go 1.12
+go 1.16
 
 require (
 	github.com/anacrolix/chansync v0.2.1-0.20210910114620-14955c95ded9 // indirect
