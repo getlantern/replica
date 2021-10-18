@@ -7,6 +7,7 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/getlantern/replica/service"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,7 +15,7 @@ func TestCreateLink(t *testing.T) {
 	const infoHashHex = "deadbeefc0ffeec0ffeedeadbeefc0ffeec0ffee"
 	var infoHash torrent.InfoHash
 	require.NoError(t, infoHash.FromHexString(infoHashHex))
-	upload := NewUuidPrefix()
+	upload := service.NewUuidPrefix()
 	link := CreateLink(infoHash, upload, []string{"nice name"})
 	uuidString := upload.String()
 	require.EqualValues(t,
@@ -31,7 +32,7 @@ func TestCreateLink(t *testing.T) {
 func TestS3PrefixFromMagnetMissingXs(t *testing.T) {
 	m, err := metainfo.ParseMagnetURI("magnet:?xt=urn:btih:b84d0051d6cc64eb48bf8c47dd44320f69c17544&dn=Test+Drive+Unlimited+ReincarnaTion%2FTest+Drive+Unlimited+ReincarnaTion.exe&so=0")
 	require.NoError(t, err)
-	err = new(Upload).FromMagnet(m)
+	err = new(service.Upload).FromMagnet(m)
 	require.Error(t, err)
 }
 
@@ -42,7 +43,7 @@ func TestS3KeyFromReplicaMagnetOpaqueKey(t *testing.T) {
 	require.NoError(t, err)
 	u, _ := url.Parse(m.Params.Get("xs"))
 	t.Logf("%#v", u)
-	var s3Key Upload
+	var s3Key service.Upload
 	err = s3Key.FromMagnet(m)
 	require.NoError(t, err)
 	require.EqualValues(t, "4cfacbd0-811c-4319-9d57-87c484c14814", s3Key.String())

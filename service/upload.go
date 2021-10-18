@@ -1,9 +1,11 @@
-package replica
+package service
 
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -113,4 +115,49 @@ func (me *UploadMetainfo) FromTorrentMetainfo(mi *metainfo.MetaInfo, fileName st
 
 func (me UploadMetainfo) FilePath() []string {
 	return me.Info.UpvertedFiles()[0].Path
+}
+
+type IteredUpload struct {
+	Metainfo UploadMetainfo
+	FileInfo os.FileInfo
+	Err      error
+}
+
+// IterUploads walks the torrent files (UUID-uploads?) stored in the directory. This is specific to
+// the replica desktop server, except that maybe there is replica-project specific stuff to extract
+// from metainfos etc. The prefixes are the upload file stems.
+func IterUploads(dir string, f func(IteredUpload)) error {
+	entries, err := ioutil.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if filepath.Ext(e.Name()) != ".torrent" {
+			continue
+		}
+		p := filepath.Join(dir, e.Name())
+		mi, err := metainfo.LoadFromFile(p)
+		if err != nil {
+			f(IteredUpload{Err: fmt.Errorf("loading metainfo from file %q: %w", p, err)})
+			continue
+		}
+		var umi UploadMetainfo
+		// This should really be a new method that assumes to be loading from a file name.
+		err = umi.FromTorrentMetainfo(mi, e.Name())
+		if err != nil {
+			f(IteredUpload{Err: fmt.Errorf("unwrapping upload metainfo from file %q: %w", p, err)})
+			continue
+		}
+		f(IteredUpload{Metainfo: umi, FileInfo: e})
+	}
+	return nil
+}
+
+type UploadOutput struct {
+	UploadMetainfo
+	AuthToken *string
+	Link      *string
 }
