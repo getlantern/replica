@@ -12,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/frankban/quicktest v1.13.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
+	github.com/getlantern/errors v1.0.1
 	github.com/getlantern/flashlight v0.0.0-20210922145107-fdcc91512d17
 	github.com/getlantern/golog v0.0.0-20210606115803-bce9f9fe5a5f
 	github.com/getlantern/meta-scrubber v0.0.1
@@ -20,7 +21,6 @@ require (
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/leanovate/gopter v0.2.9
 	github.com/pion/rtp v1.7.2 // indirect
-	github.com/pkg/errors v0.9.1
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20210813211128-0a44fdfbc16e // indirect
