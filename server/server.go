@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	stdErrors "errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -19,12 +20,12 @@ import (
 
 	"github.com/anacrolix/torrent/storage"
 	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
+	"github.com/getlantern/errors"
 	"github.com/getlantern/flashlight/config"
 	"github.com/getlantern/flashlight/ops"
 	"github.com/getlantern/golog"
 	"github.com/getsentry/sentry-go"
 	"github.com/kennygrant/sanitize"
-	"github.com/pkg/errors"
 
 	"github.com/anacrolix/confluence/confluence"
 	anacrolixLogger "github.com/anacrolix/log"
@@ -104,17 +105,17 @@ func NewHTTPHandler(
 	replicaCacheDir := filepath.Join(userCacheDir, common.AppName, "replica")
 	err = os.MkdirAll(replicaCacheDir, 0700)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to mkdir replicaCacheDir %v", replicaCacheDir)
+		return nil, errors.New("mkdir replicaCacheDir %v: %v", replicaCacheDir, err)
 	}
 	uploadsDir := filepath.Join(input.RootUploadsDir, "replica", "uploads")
 	err = os.MkdirAll(uploadsDir, 0700)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to mkdir uploadsDir %v", uploadsDir)
+		return nil, errors.New("mkdir uploadsDir %v: %v", uploadsDir, err)
 	}
 	replicaDataDir := filepath.Join(replicaCacheDir, "data")
 	err = os.MkdirAll(replicaDataDir, 0700)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to mkdir replicaDataDir %v", replicaDataDir)
+		return nil, errors.New("mkdir replicaDataDir %v: %v", replicaDataDir, err)
 	}
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.DisableIPv6 = true
@@ -135,7 +136,7 @@ func NewHTTPHandler(
 	opts.Capacity = 5 << 30
 	defaultStorage, err := sqliteStorage.NewDirectStorage(opts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "creating torrent storage cache with opts %+v", opts)
+		return nil, errors.New("creating torrent storage cache with opts %+v: %v", opts, err)
 	}
 	defer func() {
 		if err != nil {
@@ -165,7 +166,7 @@ func NewHTTPHandler(
 		cfg.ListenPort = 0
 		torrentClient, err = torrent.NewClient(cfg)
 		if err != nil {
-			return nil, errors.Wrap(err, "starting torrent client")
+			return nil, errors.New("starting torrent client: %v", err)
 		}
 	}
 
@@ -228,7 +229,7 @@ func NewHTTPHandler(
 			}
 		}); err != nil {
 			handler.Close()
-			return nil, errors.Wrap(err, "iterating through uploads")
+			return nil, errors.New("iterating through uploads: %v", err)
 		}
 	}
 	return handler, nil
@@ -274,7 +275,7 @@ func (me *HttpHandler) wrapHandlerError(
 			// but since we're also the client I think this makes some sense for now
 			sentry.ConfigureScope(func(scope *sentry.Scope) {
 				scope.SetLevel(func() sentry.Level {
-					if r.Context().Err() == context.Canceled && errors.Is(err, context.Canceled) {
+					if r.Context().Err() == context.Canceled && stdErrors.Is(err, context.Canceled) {
 						return sentry.LevelInfo
 					}
 					return sentry.LevelError
@@ -374,7 +375,7 @@ func (me *HttpHandler) handleUpload(rw *ops.InstrumentedResponseWriter, r *http.
 
 	scrubbedReader, err := metascrubber.GetScrubber(fileReader)
 	if err != nil {
-		return errors.Wrap(err, "getting metascrubber")
+		return errors.New("getting metascrubber: %v", err)
 	}
 
 	var cw CountWriter
@@ -411,7 +412,7 @@ func (me *HttpHandler) handleUpload(rw *ops.InstrumentedResponseWriter, r *http.
 	}
 	log.Debugf("uploaded %d bytes", cw.BytesWritten)
 	if err != nil {
-		return errors.Wrap(err, "uploading with replica client")
+		return errors.New("uploading with replica client: %v", err)
 	}
 	upload := output.Upload
 	log.Debugf("uploaded replica key %q", upload)
@@ -421,11 +422,11 @@ func (me *HttpHandler) handleUpload(rw *ops.InstrumentedResponseWriter, r *http.
 		var metainfoBytes bytes.Buffer
 		err = output.MetaInfo.Write(&metainfoBytes)
 		if err != nil {
-			return errors.Wrap(err, "writing metainfo")
+			return errors.New("writing metainfo: %v", err)
 		}
 		err = storeUploadedTorrent(&metainfoBytes, me.uploadMetainfoPath(upload))
 		if err != nil {
-			return errors.Wrap(err, "storing uploaded torrent")
+			return errors.New("storing uploaded torrent: %v", err)
 		}
 	}
 	if err := me.writeNewUploadAuthTokenFile(*output.AuthToken, upload.Prefix); err != nil {
@@ -441,7 +442,10 @@ func (me *HttpHandler) handleUpload(rw *ops.InstrumentedResponseWriter, r *http.
 		// Move the temporary file, which contains the upload body, to the data directory for the
 		// torrent client, in the location it expects.
 		dst := filepath.Join(append([]string{me.dataDir, upload.String()}, output.Info.UpvertedFiles()[0].Path...)...)
-		_ = os.MkdirAll(filepath.Dir(dst), 0700)
+		err = os.MkdirAll(filepath.Dir(dst), 0700)
+		if err != nil {
+			return errors.New("creating data directory: %v: %v", dst, err)
+		}
 		err = os.Rename(tmpFile.Name(), dst)
 		if err != nil {
 			// Not fatal: See above, we only really need the metainfo to be added to the torrent.
@@ -451,13 +455,13 @@ func (me *HttpHandler) handleUpload(rw *ops.InstrumentedResponseWriter, r *http.
 	if me.AddUploadsToTorrentClient {
 		err = me.addUploadTorrent(output.MetaInfo, true)
 		if err != nil {
-			return errors.Wrap(err, "adding torrent")
+			return errors.New("adding torrent: %v", err)
 		}
 	}
 	var oi objectInfo
 	err = oi.FromUploadMetainfo(output.UploadMetainfo, time.Now())
 	if err != nil {
-		return errors.Wrap(err, "getting objectInfo from upload metainfo")
+		return errors.New("getting objectInfo from upload metainfo: %v", err)
 	}
 	// We can clobber with what should be a superior link directly from the upload service endpoint.
 	if output.Link != nil {
@@ -515,14 +519,14 @@ func (me *HttpHandler) handleDelete(rw *ops.InstrumentedResponseWriter, r *http.
 	link := r.URL.Query().Get("link")
 	m, err := metainfo.ParseMagnetUri(link)
 	if err != nil {
-		return handlerError{http.StatusBadRequest, errors.Wrap(err, "parsing magnet link")}
+		return handlerError{http.StatusBadRequest, errors.New("parsing magnet link: %v", err)}
 
 	}
 
 	var upload service.Upload
 	if err := upload.FromMagnet(m); err != nil {
 		log.Errorf("error getting upload spec from magnet link %q: %v", m, err)
-		return handlerError{http.StatusBadRequest, errors.Wrap(err, "parsing replica uri")}
+		return handlerError{http.StatusBadRequest, errors.New("parsing replica uri: %v", err)}
 	}
 
 	// The prefixes returned from the uploads endpoint contain the file stem for the token file.
@@ -545,7 +549,7 @@ func (me *HttpHandler) handleDelete(rw *ops.InstrumentedResponseWriter, r *http.
 		)
 		if err != nil {
 			// It could be possible to unpack the service response status code and relay that.
-			return errors.Wrap(err, "deleting upload")
+			return errors.New("deleting upload: %v", err)
 		}
 		t, ok := me.torrentClient.Torrent(m.InfoHash)
 		if ok {
@@ -570,12 +574,12 @@ func (me *HttpHandler) handleMetadata(category string) func(*ops.InstrumentedRes
 		replicaLink := query.Get("replicaLink")
 		m, err := metainfo.ParseMagnetUri(replicaLink)
 		if err != nil {
-			return errors.Wrap(err, "parsing magnet link")
+			return errors.New("parsing magnet link: %v", err)
 		}
 		so := m.Params.Get("so")
 		fileIndex, err := strconv.ParseUint(so, 10, 0)
 		if err != nil {
-			err = errors.Wrap(err, "parsing so field")
+			err = errors.New("parsing so field: %v", err)
 			log.Errorf("error %v", err)
 			fileIndex = 0
 		}
@@ -604,7 +608,7 @@ func (me *HttpHandler) handleMetadata(category string) func(*ops.InstrumentedRes
 			return
 		}())
 		if err != nil {
-			return errors.Wrap(err, "doing http metadata request")
+			return errors.New("doing http metadata request: %v", err)
 		}
 		defer resp.Body.Close()
 		for h, vv := range resp.Header {
@@ -620,7 +624,7 @@ func (me *HttpHandler) handleMetadata(category string) func(*ops.InstrumentedRes
 		rw.WriteHeader(resp.StatusCode)
 		_, err = io.Copy(rw, resp.Body)
 		if err != nil {
-			err = errors.Wrap(err, "copying metadata response")
+			err = errors.New("copying metadata response: %v", err)
 		}
 		return err
 	}
@@ -731,7 +735,7 @@ func (me *HttpHandler) handleViewWith(rw *ops.InstrumentedResponseWriter, r *htt
 
 	m, err := metainfo.ParseMagnetUri(link)
 	if err != nil {
-		return handlerError{http.StatusBadRequest, errors.Wrap(err, "parsing magnet link")}
+		return handlerError{http.StatusBadRequest, errors.New("parsing magnet link: %v", err)}
 	}
 
 	rw.Op.Set("info_hash", m.InfoHash)
@@ -761,7 +765,7 @@ func (me *HttpHandler) handleViewWith(rw *ops.InstrumentedResponseWriter, r *htt
 	}
 
 	if err := t.MergeSpec(spec); err != nil {
-		return errors.Wrap(err, "merging spec")
+		return errors.New("merging spec: %v", err)
 	}
 
 	selectOnly, err := strconv.ParseUint(m.Params.Get("so"), 10, 0)
@@ -825,7 +829,7 @@ func (me *HttpHandler) handleObjectInfo(rw *ops.InstrumentedResponseWriter, r *h
 	replicaLink := query.Get("replicaLink")
 	m, err := metainfo.ParseMagnetUri(replicaLink)
 	if err != nil {
-		return handlerError{http.StatusBadRequest, errors.Wrap(err, "parsing magnet link")}
+		return handlerError{http.StatusBadRequest, errors.New("parsing magnet link: %v", err)}
 	}
 	resp, err := doFirst(
 		(&http.Request{}).WithContext(r.Context()),
