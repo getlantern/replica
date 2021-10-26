@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -58,6 +59,11 @@ type HttpHandler struct {
 }
 
 type NewHttpHandlerInput struct {
+	// Used to proxy http calls
+	TorrentClientHTTPProxy func(*http.Request) (*url.URL, error)
+	// Takes a tracker's hostname and requests DNS A and AAAA records.
+	// Used for proxying DNS lookups through https (i.e., dns-over-https)
+	TorrentClientLookupTrackerIp func(*url.URL) ([]net.IP, error)
 	// Root directory of the torrent uploads.
 	// This is usually postfixed with "$RootUploadsDir/replica/uploads"
 	RootUploadsDir string
@@ -119,6 +125,8 @@ func NewHTTPHandler(
 	}
 	cfg := torrent.NewDefaultClientConfig()
 	cfg.DisableIPv6 = true
+	cfg.HTTPProxy = input.TorrentClientHTTPProxy
+	cfg.LookupTrackerIp = input.TorrentClientLookupTrackerIp
 	// This should not be used, we're specifying our own storage for uploads and general views
 	// respectively.
 	cfg.DataDir = "\x00"
