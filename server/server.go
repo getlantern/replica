@@ -95,18 +95,36 @@ func (me *NewHttpHandlerInput) SetDefaults() {
 func NewHTTPHandler(
 	input NewHttpHandlerInput,
 ) (_ *HttpHandler, err error) {
-
-	var userCacheDir string
-	// If input.CacheDir is empty, use os.UserCacheDir() or os.TempDir()
-	// if the former is inaccessible
-	if input.CacheDir == "" {
-		userCacheDir, err = os.UserCacheDir()
+	getOsCacheOrTmpDir := func() string {
+		d, err := os.UserCacheDir()
 		if err != nil {
 			log.Errorf("accessing the user cache dir, fallback to temp dir: %w", err)
-			userCacheDir = os.TempDir()
+			return os.TempDir()
+		}
+		return d
+	}
+
+	var userCacheDir string
+	if input.CacheDir != "" {
+		dir, err := os.Stat(input.CacheDir)
+		switch {
+		case err != nil:
+			// XXX <04-11-21, soltzen> Ref
+			// https://github.com/getlantern/lantern-internal/issues/5021
+			//
+			// If we encounter an error, fallback to OS cache or tmp dir
+			userCacheDir = getOsCacheOrTmpDir()
+		case !dir.IsDir():
+			// If dir is not a directory, fallback to OS cache or tmp dir
+			userCacheDir = getOsCacheOrTmpDir()
+		default:
+			// else, assign and use it
+			userCacheDir = input.CacheDir
 		}
 	} else {
-		userCacheDir = input.CacheDir
+		// If input.CacheDir is empty, use os.UserCacheDir() or os.TempDir()
+		// if the former is inaccessible
+		userCacheDir = getOsCacheOrTmpDir()
 	}
 	replicaCacheDir := filepath.Join(userCacheDir, common.AppName, "replica")
 	err = os.MkdirAll(replicaCacheDir, 0700)
