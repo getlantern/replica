@@ -91,6 +91,81 @@ func (me *NewHttpHandlerInput) SetDefaults() {
 	me.HttpClient = http.DefaultClient
 }
 
+// mkdirAllInOsCacheOrTmp finds os.UserCacheDir(), or os.TempDir() if the
+// former fails, and creates a new directory 'dir' there.
+//
+// This function returns an error only if os.MkdirAll fails to create a
+// directory in os.UserCacheDir() and os.TempDir(), which is very rare.
+//
+// **NOTE** If 'dir' already exists in the cache/tmp directories, it'll be removed
+//
+// Example:
+//
+//   		dir, err := mkdirAllInOsCacheOrTmp("xxx")
+//   		if err != nil {
+//   		   panic(err
+//   		}
+//
+//   If user can access os.UserCacheDir(), dir will be
+//   "$HOME/.cache/xxx" and a new directory will be created there
+//
+//   If that fails, dir will point to /tmp/xxx and a new directory will be
+//   created there
+//
+//   Else, function will return and error
+func mkdirAllInOsCacheOrTmp(tmpDirName string) (string, error) {
+	parentDir, err := os.UserCacheDir()
+	if err != nil {
+		log.Errorf("accessing the user cache dir, fallback to temp dir: %v", err)
+		parentDir = os.TempDir()
+	}
+
+	newDir := filepath.Join(parentDir, tmpDirName)
+	os.RemoveAll(newDir)
+	err = os.MkdirAll(newDir, 0700)
+	if err != nil {
+		return "", errors.New("Failed to make replica dir in cache/tmp: %v", err)
+	}
+	return newDir, nil
+}
+
+// mkdirAllInTargetOrCache runs os.MkdirAll(dir, 0700).
+// If an error occurs, it'll try to run os.MkdirAll(prefix, 0700) in
+// os.UserCacheDir() or os.TempDir().
+//
+// This function only returns an error if all of the above fails, which is a
+// very rare case.
+//
+// Example:
+//
+//   		dir, err := mkdirAllInTargetOrCache("xxx", "/home/bunnyfoofoo/xxx")
+//   		if err != nil {
+//   		   panic(err
+//   		}
+//
+//   If user can access "/home/bunnyfoofoo", dir will be
+//   "/home/bunnyfoofoo/xxx" and a new directory will be created there.
+//
+//   Else, dir will point to $HOME/.cache/xxx and a new directory will be
+//   created there.
+//
+//   If that fails, dir will point to /tmp/xxx and a new directory will be
+//   created there.
+//
+//   Else, it'll fail and return and error
+func mkdirAllInTargetOrCache(tmpDirName, dir string) (string, error) {
+	err := os.MkdirAll(dir, 0700)
+	if err != nil {
+		log.Errorf("mkdirall %v: %v", dir, err)
+		tmpDir, err := mkdirAllInOsCacheOrTmp(tmpDirName)
+		if err != nil {
+			return "", errors.New("mkdirall in cache/tmp %v: %v", tmpDirName, err)
+		}
+		return tmpDir, nil
+	}
+	return dir, nil
+}
+
 // NewHTTPHandler creates a new http.Handler for calls to replica.
 func NewHTTPHandler(
 	input NewHttpHandlerInput,
@@ -100,26 +175,22 @@ func NewHTTPHandler(
 	// If input.CacheDir is empty, use os.UserCacheDir() or os.TempDir()
 	// if the former is inaccessible
 	if input.CacheDir == "" {
-		userCacheDir, err = os.UserCacheDir()
+		userCacheDir, err = mkdirAllInOsCacheOrTmp("userCacheDir")
 		if err != nil {
-			log.Errorf("accessing the user cache dir, fallback to temp dir: %w", err)
-			userCacheDir = os.TempDir()
+			return nil, err
 		}
 	} else {
 		userCacheDir = input.CacheDir
 	}
-	replicaCacheDir := filepath.Join(userCacheDir, common.AppName, "replica")
-	err = os.MkdirAll(replicaCacheDir, 0700)
+	replicaCacheDir, err := mkdirAllInTargetOrCache("replicaCache", filepath.Join(userCacheDir, common.AppName, "replica"))
 	if err != nil {
 		return nil, errors.New("mkdir replicaCacheDir %v: %v", replicaCacheDir, err)
 	}
-	uploadsDir := filepath.Join(input.RootUploadsDir, "replica", "uploads")
-	err = os.MkdirAll(uploadsDir, 0700)
+	uploadsDir, err := mkdirAllInTargetOrCache("replicaUploads", filepath.Join(input.RootUploadsDir, "replica", "uploads"))
 	if err != nil {
 		return nil, errors.New("mkdir uploadsDir %v: %v", uploadsDir, err)
 	}
-	replicaDataDir := filepath.Join(replicaCacheDir, "data")
-	err = os.MkdirAll(replicaDataDir, 0700)
+	replicaDataDir, err := mkdirAllInTargetOrCache("replicaData", filepath.Join(replicaCacheDir, "data"))
 	if err != nil {
 		return nil, errors.New("mkdir replicaDataDir %v: %v", replicaDataDir, err)
 	}
