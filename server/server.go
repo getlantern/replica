@@ -91,28 +91,43 @@ func (me *NewHttpHandlerInput) SetDefaults() {
 	me.HttpClient = http.DefaultClient
 }
 
+// Returns candidate cache directories in order of preference.
+func candidateCacheDirs(inputCacheDir string) (ret []string) {
+	if inputCacheDir != "" {
+		ret = append(ret, inputCacheDir)
+	}
+	osUserCacheDir, err := os.UserCacheDir()
+	if err == nil {
+		ret = append(ret, osUserCacheDir)
+	} else {
+		log.Errorf("getting the user cache dir: %v", err)
+	}
+	ret = append(ret, os.TempDir())
+	for i := range ret {
+		ret[i] = filepath.Join(ret[i], common.AppName, "replica")
+	}
+	return
+}
+
+// Tries to create a replica cache directory with appropriate permissions, returning the best
+// candidate if all attempts fail.
+func prepareCacheDir(inputCacheDir string) string {
+	candidates := candidateCacheDirs(inputCacheDir)
+	for _, dir := range candidates {
+		err := os.MkdirAll(dir, 0o700)
+		if err == nil {
+			return dir
+		}
+		log.Errorf("creating candidate replica cache dir %q: %v", dir, err)
+	}
+	return candidates[0]
+}
+
 // NewHTTPHandler creates a new http.Handler for calls to replica.
 func NewHTTPHandler(
 	input NewHttpHandlerInput,
 ) (_ *HttpHandler, err error) {
-
-	var userCacheDir string
-	// If input.CacheDir is empty, use os.UserCacheDir() or os.TempDir()
-	// if the former is inaccessible
-	if input.CacheDir == "" {
-		userCacheDir, err = os.UserCacheDir()
-		if err != nil {
-			log.Errorf("accessing the user cache dir, fallback to temp dir: %w", err)
-			userCacheDir = os.TempDir()
-		}
-	} else {
-		userCacheDir = input.CacheDir
-	}
-	replicaCacheDir := filepath.Join(userCacheDir, common.AppName, "replica")
-	err = os.MkdirAll(replicaCacheDir, 0700)
-	if err != nil {
-		return nil, errors.New("mkdir replicaCacheDir %v: %v", replicaCacheDir, err)
-	}
+	replicaCacheDir := prepareCacheDir(input.CacheDir)
 	uploadsDir := filepath.Join(input.RootUploadsDir, "replica", "uploads")
 	err = os.MkdirAll(uploadsDir, 0700)
 	if err != nil {
