@@ -3,9 +3,10 @@ module github.com/getlantern/replica
 go 1.16
 
 require (
-	github.com/anacrolix/confluence v1.8.1
+	github.com/anacrolix/confluence v1.9.0
+	github.com/anacrolix/dht/v2 v2.12.2-0.20211115065219-e0bdf0df0e1b
 	github.com/anacrolix/log v0.10.0
-	github.com/anacrolix/torrent v1.35.0
+	github.com/anacrolix/torrent v1.37.1-0.20211114135342-c442a22ac2bb
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/getlantern/errors v1.0.1
 	github.com/getlantern/flashlight v0.0.0-20210922145107-fdcc91512d17
