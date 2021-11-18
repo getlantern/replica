@@ -639,10 +639,18 @@ func (me *HttpHandler) handleMetadata(category string) func(*ops.InstrumentedRes
 				rw.Header().Add(h, v)
 			}
 		}
-		// Clobbering the origin's Cache-Control header. Not that it seems to set one.
+		// AWS opines on us here, no thanks.
+		rw.Header().Del("Cache-Control")
+		rw.Header().Del("Pragma")
+		rw.Header().Del("Expires")
 		switch resp.StatusCode {
 		case http.StatusOK, http.StatusPartialContent:
+			// Clobbering the origin's Cache-Control header.
 			rw.Header().Set("Cache-Control", "public, max-age=604800, immutable")
+		case http.StatusForbidden, http.StatusNotFound:
+			// The behaviour I want here is to not retry for some small period of time. Chrome seems to ignore
+			// this?
+			rw.Header().Set("Cache-Control", "public, max-age=600")
 		}
 		rw.WriteHeader(resp.StatusCode)
 		_, err = io.Copy(rw, resp.Body)
