@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/anacrolix/dht/v2"
 	"github.com/anacrolix/torrent/storage"
 	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
 	"github.com/getlantern/errors"
@@ -84,6 +85,9 @@ type NewHttpHandlerInput struct {
 	StoreUploadsLocally bool
 	OnRequestReceived   func(handler string, extraInfo string)
 	GlobalConfig        func() *config.ReplicaOptions
+	// This sets the DHT node as 'read-only' as well as disable seeding in the
+	// torrent client
+	ReadOnlyNode bool
 }
 
 func (me *NewHttpHandlerInput) SetDefaults() {
@@ -145,7 +149,15 @@ func NewHTTPHandler(
 	// This should not be used, we're specifying our own storage for uploads and general views
 	// respectively.
 	cfg.DataDir = "\x00"
-	cfg.Seed = true
+	// https://github.com/getlantern/android-lantern/issues/533
+	if input.ReadOnlyNode {
+		cfg.Seed = false
+		cfg.ConfigureAnacrolixDhtServer = func(dhtCfg *dht.ServerConfig) {
+			dhtCfg.Passive = true
+		}
+	} else {
+		cfg.Seed = true
+	}
 	cfg.HeaderObfuscationPolicy.Preferred = true
 	cfg.HeaderObfuscationPolicy.RequirePreferred = true
 	//cfg.Debug = true
