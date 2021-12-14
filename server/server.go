@@ -108,7 +108,7 @@ func candidateCacheDirs(inputCacheDir string) (ret []string) {
 	}
 	ret = append(ret, os.TempDir())
 	for i := range ret {
-		ret[i] = filepath.Join(ret[i], common.AppName, "replica")
+		ret[i] = filepath.Join(ret[i], common.DefaultAppName, "replica")
 	}
 	return
 }
