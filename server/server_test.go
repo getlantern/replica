@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/getlantern/flashlight/ops"
 	"github.com/getlantern/golog/testlog"
 	"github.com/getlantern/replica/service"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +41,7 @@ func TestUploadAndDelete(t *testing.T) {
 	assert.Empty(t, files)
 
 	w := httptest.NewRecorder()
-	rw := ops.InitInstrumentedResponseWriter(w, "replicatest")
+	rw := &NoopInstrumentedResponseWriter{w}
 	fileName := "testfile"
 	r := httptest.NewRequest("POST", "http://dummy.com/upload?name="+fileName, strings.NewReader("file content"))
 	err = handler.handleUpload(rw, r)

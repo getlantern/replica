@@ -6,32 +6,11 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
-
-	"github.com/getlantern/flashlight/common"
-	"github.com/getlantern/flashlight/proxied"
 )
-
-var (
-	httpClient *http.Client = genHTTPClient()
-)
-
-func genHTTPClient() *http.Client {
-	return &http.Client{
-		Transport: proxied.AsRoundTripper(func(req *http.Request) (*http.Response, error) {
-			if req.Method == "GET" || req.Method == "HEAD" {
-				return proxied.ParallelPreferChainedWith("").RoundTrip(req)
-			}
-			return proxied.ChainedThenFrontedWith("").RoundTrip(req)
-		}),
-		// Not follow redirects
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-}
 
 type proxyTransport struct {
 	// Satisfies http.RoundTripper
+	client *http.Client
 }
 
 func (pt *proxyTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
@@ -50,7 +29,7 @@ func (pt *proxyTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 	}
 
 	req.Header.Del("Origin")
-	resp, err = httpClient.Do(req)
+	resp, err = pt.client.Do(req)
 	if err != nil {
 		log.Errorf("Could not issue HTTP request: %v", err)
 		return
@@ -58,7 +37,7 @@ func (pt *proxyTransport) RoundTrip(req *http.Request) (resp *http.Response, err
 	return
 }
 
-func prepareRequest(r *http.Request, uc common.UserConfig, serviceUrl func() *url.URL) {
+func prepareRequest(r *http.Request, input NewHttpHandlerInput, serviceUrl func() *url.URL) {
 	// The Iran region endpoint tries to redirect to https, and our proxy handler doesn't follow
 	// redirects. I'm not sure why we were clobbering to "http" before. We need to make sure this
 	// works regardless of region.
@@ -72,14 +51,22 @@ func prepareRequest(r *http.Request, uc common.UserConfig, serviceUrl func() *ur
 	log.Debugf("final request url: %q", r.URL)
 	r.RequestURI = "" // http: Request.RequestURI can't be set in client requests.
 
-	common.AddCommonHeaders(uc, r)
+	input.AddCommonHeaders(r)
 }
 
-func proxyHandler(uc common.UserConfig, serviceUrl func() *url.URL, modifyResponse func(*http.Response) error) http.Handler {
+func proxyHandler(input NewHttpHandlerInput, modifyResponse func(*http.Response) error) http.Handler {
 	return &httputil.ReverseProxy{
-		Transport: &proxyTransport{},
+		Transport: &proxyTransport{
+			client: &http.Client{
+				Transport: input.ProxiedRoundTripper,
+				// Don't follow redirects
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
+			},
+		},
 		Director: func(r *http.Request) {
-			prepareRequest(r, uc, serviceUrl)
+			prepareRequest(r, input, input.ReplicaServiceClient.ReplicaServiceEndpoint)
 		},
 		ModifyResponse: modifyResponse,
 	}
