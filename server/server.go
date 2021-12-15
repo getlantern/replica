@@ -582,12 +582,23 @@ func (me *HttpHandler) handleUploads(rw InstrumentedResponseWriter, r *http.Requ
 	return encodeJsonResponse(rw, resp)
 }
 
+func (me *HttpHandler) handleClearUploads(rw InstrumentedResponseWriter, r *http.Request) error {
+	os.RemoveAll(me.uploadsDir)
+	err := os.MkdirAll(me.uploadsDir, 0700)
+	if err != nil {
+		return errors.New("mkdir uploadsDir %v: %v", me.uploadsDir, err)
+	}
+
+	log.Debugf("Cleared uploads directory")
+	rw.WriteHeader(http.StatusOK)
+	return nil
+}
+
 func (me *HttpHandler) handleDelete(rw InstrumentedResponseWriter, r *http.Request) (err error) {
 	link := r.URL.Query().Get("link")
 	m, err := metainfo.ParseMagnetUri(link)
 	if err != nil {
 		return handlerError{http.StatusBadRequest, errors.New("parsing magnet link: %v", err)}
-
 	}
 
 	var upload service.Upload

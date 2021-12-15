@@ -76,3 +76,51 @@ func TestUploadAndDelete(t *testing.T) {
 	// We expect the delete handler to have removed the token and metainfo files.
 	assert.Empty(t, files)
 }
+
+func TestClearUploadsHandler(t *testing.T) {
+	stopCapture := testlog.Capture(t)
+	defer stopCapture()
+
+	// Initialize server and assert success
+	dir := t.TempDir()
+	input := NewHttpHandlerInput{}
+	input.SetDefaults()
+	input.ReplicaServiceClient = service.ServiceClient{
+		// XXX Use this endpoint to communicate directly with replica-rust,
+		ReplicaServiceEndpoint: func() *url.URL { return service.GlobalChinaDefaultServiceUrl },
+		// For local tests, build & run replica-rust and use the local loopback address
+		// ReplicaServiceEndpoint: func () *url.URL { return &url.URL{Scheme: "http", Host: "localhost:8080"} }
+		HttpClient: http.DefaultClient,
+	}
+	input.RootUploadsDir = dir
+	handler, err := NewHTTPHandler(input)
+	require.NoError(t, err)
+	require.DirExists(t, handler.uploadsDir)
+	defer handler.Close()
+
+	// Make an upload
+	w := httptest.NewRecorder()
+	rw := &NoopInstrumentedResponseWriter{w}
+	fileName := "testfile"
+	r := httptest.NewRequest("POST", "http://dummy.com/upload?name="+fileName, strings.NewReader("file content"))
+	err = handler.handleUpload(rw, r)
+	require.NoError(t, err)
+
+	// Assert it succeeded
+	var uploadedObjectInfo objectInfo
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &uploadedObjectInfo))
+	files, err := ioutil.ReadDir(handler.uploadsDir)
+	require.NoError(t, err)
+	// We expect a token file and metainfo.
+	require.Equal(t, 2, len(files))
+
+	// Clear uploads dir and assert success
+	err = handler.handleClearUploads(rw,
+		httptest.NewRequest("POST", "http://dummy.com/clear_uploads", nil))
+	require.NoError(t, err)
+	require.DirExists(t, handler.uploadsDir)
+	files, err = ioutil.ReadDir(handler.uploadsDir)
+	require.NoError(t, err)
+	// We expect a token file and metainfo.
+	require.Empty(t, files)
+}
