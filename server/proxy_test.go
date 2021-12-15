@@ -1,15 +1,16 @@
 package server
 
 import (
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
 
-	"github.com/getlantern/flashlight/common"
-	"github.com/getlantern/flashlight/testutils"
 	"github.com/getlantern/golog/testlog"
+	"github.com/getlantern/replica/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,10 +19,7 @@ func TestProxy(t *testing.T) {
 	stopCapture := testlog.Capture(t)
 	defer stopCapture()
 
-	uc := common.NewUserConfigData("device", 0, "token", nil, "en-US")
-
-	m := &testutils.MockRoundTripper{Header: http.Header{}, Body: strings.NewReader("GOOD")}
-	httpClient = &http.Client{Transport: m}
+	m := &mockRoundTripper{Header: http.Header{}, Body: strings.NewReader("GOOD")}
 
 	l, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
@@ -33,17 +31,27 @@ func TestProxy(t *testing.T) {
 	}
 	t.Logf("Test server listening at %v", url_)
 
-	handler := proxyHandler(
-		uc,
-		func() *url.URL {
-			u, err := url.Parse("http://" + addr.String())
-			require.NoError(t, err)
-			return u
+	input := &NewHttpHandlerInput{
+		ReplicaServiceClient: service.ServiceClient{
+			ReplicaServiceEndpoint: func() *url.URL {
+				u, err := url.Parse("http://" + addr.String())
+				require.NoError(t, err)
+				return u
+			},
 		},
+		ProxiedRoundTripper: m,
+		AddCommonHeaders: func(r *http.Request) {
+			r.Header.Add("x-lantern-device-id", "device")
+			r.Header.Add("x-lantern-pro-token", "token")
+		},
+	}
+	input.SetDefaults()
+
+	handler := proxyHandler(*input,
 		func(*http.Response) error {
 			return nil
-		},
-	)
+		})
+
 	go http.Serve(l, handler)
 
 	{
@@ -74,4 +82,20 @@ func TestProxy(t *testing.T) {
 			require.Equal(t, "token", m.Req.Header.Get("x-lantern-pro-token"), "should include pro token header in request to search api")
 		}
 	}
+}
+
+type mockRoundTripper struct {
+	Req    *http.Request
+	Body   io.Reader
+	Header http.Header
+}
+
+func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	m.Req = req
+	resp := &http.Response{
+		StatusCode: 200,
+		Header:     m.Header,
+		Body:       ioutil.NopCloser(m.Body),
+	}
+	return resp, nil
 }

@@ -22,9 +22,8 @@ import (
 	"github.com/anacrolix/dht/v2"
 	"github.com/anacrolix/torrent/storage"
 	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
+	borda "github.com/getlantern/borda/client"
 	"github.com/getlantern/errors"
-	"github.com/getlantern/flashlight/config"
-	"github.com/getlantern/flashlight/ops"
 	"github.com/getlantern/golog"
 	"github.com/getsentry/sentry-go"
 	"github.com/kennygrant/sanitize"
@@ -33,8 +32,8 @@ import (
 	anacrolixLogger "github.com/anacrolix/log"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/getlantern/flashlight/common"
 	metascrubber "github.com/getlantern/meta-scrubber"
+	"github.com/getlantern/ops"
 	"github.com/getlantern/replica/service"
 )
 
@@ -59,6 +58,33 @@ type HttpHandler struct {
 	defaultStorage storage.ClientImplCloser
 }
 
+type ReplicaOptions interface {
+	// Use infohash and old-style prefixing simultaneously for now. Later, the old-style can be removed.
+	GetWebseedBaseUrls() []string
+	GetTrackers() []string
+	GetStaticPeerAddrs() []string
+	// Merged with the webseed URLs when the metadata and data buckets are merged.
+	GetMetadataBaseUrls() []string
+	// Default endpoint, if nothing else is found
+	GetReplicaRustDefaultEndpoint() string
+	// map of region to endpoint url
+	GetReplicaRustEndpoints() map[string]string
+}
+
+func getMetainfoUrls(gc ReplicaOptions, prefix string) (ret []string) {
+	for _, s := range gc.GetWebseedBaseUrls() {
+		ret = append(ret, fmt.Sprintf("%s%s/torrent", s, prefix))
+	}
+	return
+}
+
+func getWebseedUrls(gc ReplicaOptions, prefix string) (ret []string) {
+	for _, s := range gc.GetWebseedBaseUrls() {
+		ret = append(ret, fmt.Sprintf("%s%s/data/", s, prefix))
+	}
+	return
+}
+
 type NewHttpHandlerInput struct {
 	// Used to proxy http calls
 	TorrentClientHTTPProxy func(*http.Request) (*url.URL, error)
@@ -71,8 +97,9 @@ type NewHttpHandlerInput struct {
 	// Location of torrent client data
 	// If left empty, will use os.UserCacheDir() or os.TempDir() if the former
 	// is inaccessible
-	CacheDir   string
-	UserConfig common.UserConfig
+	CacheDir string
+	// The Application Name, used for generating cache directories specific to this application
+	AppName    string
 	HttpClient *http.Client
 	// For uploads, deletes, and other behaviour serviced by replica-rust using an API in the
 	// replica repo.
@@ -84,19 +111,25 @@ type NewHttpHandlerInput struct {
 	// intend to seed it.
 	StoreUploadsLocally bool
 	OnRequestReceived   func(handler string, extraInfo string)
-	GlobalConfig        func() *config.ReplicaOptions
+	GlobalConfig        func() ReplicaOptions
 	// This sets the DHT node as 'read-only' as well as disable seeding in the
 	// torrent client
 	ReadOnlyNode bool
-}
-
-func (me *NewHttpHandlerInput) SetDefaults() {
-	me.UserConfig = &common.NullUserConfig{}
-	me.HttpClient = http.DefaultClient
+	// A proxying RoundTripper that simultaneously utilizes domain-fronting and proxies for GET and HEAD
+	// requests, and that sequentially uses proxies and then domain-fronting for other types of requests.
+	ProxiedRoundTripper http.RoundTripper
+	// Callback for adding common headers to outbound requests
+	AddCommonHeaders func(*http.Request)
+	// ProcessCORSHeaders processes CORS requests on localhost.
+	// It returns true if the request is a valid CORS request
+	// from an allowed origin and false otherwise.
+	ProcessCORSHeaders func(responseHeaders http.Header, r *http.Request) bool
+	// Instruments the given ResponseWriter for tracking metrics under the given label
+	InstrumentResponseWriter func(w http.ResponseWriter, label string) InstrumentedResponseWriter
 }
 
 // Returns candidate cache directories in order of preference.
-func candidateCacheDirs(inputCacheDir string) (ret []string) {
+func candidateCacheDirs(appName, inputCacheDir string) (ret []string) {
 	if inputCacheDir != "" {
 		ret = append(ret, inputCacheDir)
 	}
@@ -108,15 +141,15 @@ func candidateCacheDirs(inputCacheDir string) (ret []string) {
 	}
 	ret = append(ret, os.TempDir())
 	for i := range ret {
-		ret[i] = filepath.Join(ret[i], common.DefaultAppName, "replica")
+		ret[i] = filepath.Join(ret[i], appName, "replica")
 	}
 	return
 }
 
 // Tries to create a replica cache directory with appropriate permissions, returning the best
 // candidate if all attempts fail.
-func prepareCacheDir(inputCacheDir string) string {
-	candidates := candidateCacheDirs(inputCacheDir)
+func prepareCacheDir(appName, inputCacheDir string) string {
+	candidates := candidateCacheDirs(appName, inputCacheDir)
 	for _, dir := range candidates {
 		err := os.MkdirAll(dir, 0o700)
 		if err == nil {
@@ -131,7 +164,7 @@ func prepareCacheDir(inputCacheDir string) string {
 func NewHTTPHandler(
 	input NewHttpHandlerInput,
 ) (_ *HttpHandler, err error) {
-	replicaCacheDir := prepareCacheDir(input.CacheDir)
+	replicaCacheDir := prepareCacheDir(input.AppName, input.CacheDir)
 	uploadsDir := filepath.Join(input.RootUploadsDir, "replica", "uploads")
 	err = os.MkdirAll(uploadsDir, 0700)
 	if err != nil {
@@ -184,7 +217,7 @@ func NewHTTPHandler(
 		op := ops.Begin("replica_torrent_peer_sent_data")
 		op.Set("remote_addr", event.Peer.RemoteAddr.String())
 		op.Set("remote_network", event.Peer.Network)
-		op.SetMetricSum("useful_bytes_count", float64(len(event.Message.Piece)))
+		op.Set("useful_bytes_count", borda.Sum(float64(len(event.Message.Piece))))
 		op.End()
 		log.Tracef("reported %v bytes from %v over %v",
 			len(event.Message.Piece),
@@ -217,8 +250,7 @@ func NewHTTPHandler(
 		dataDir:       replicaDataDir,
 		uploadsDir:    uploadsDir,
 		searchProxy: http.StripPrefix("/search", proxyHandler(
-			input.UserConfig,
-			input.ReplicaServiceClient.ReplicaServiceEndpoint,
+			input,
 			nil)),
 		// I think the standard file-storage implementation is sufficient here because we guarantee
 		// unique info name/prefixes for uploads (which the default file implementation does not).
@@ -272,7 +304,7 @@ func NewHTTPHandler(
 
 func (me *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("replica server request path: %q", r.URL.Path)
-	common.ProcessCORS(w.Header(), r)
+	me.ProcessCORSHeaders(w.Header(), r)
 	me.mux.ServeHTTP(w, r)
 }
 
@@ -297,14 +329,14 @@ type encoderWriterError struct {
 
 func (me *HttpHandler) wrapHandlerError(
 	opName string,
-	handler func(*ops.InstrumentedResponseWriter, *http.Request) error,
+	handler func(InstrumentedResponseWriter, *http.Request) error,
 ) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		w := ops.InitInstrumentedResponseWriter(rw, opName)
+		w := me.InstrumentResponseWriter(rw, opName)
 		defer w.Finish()
 		if err := handler(w, r); err != nil {
 			log.Errorf("in %q handler: %v", opName, err)
-			w.Op.FailIf(err)
+			w.FailIf(err)
 
 			// we may want to only ultimately only report server errors here (ie >=500)
 			// but since we're also the client I think this makes some sense for now
@@ -375,7 +407,7 @@ func (me *CountWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (me *HttpHandler) handleUpload(rw *ops.InstrumentedResponseWriter, r *http.Request) error {
+func (me *HttpHandler) handleUpload(rw InstrumentedResponseWriter, r *http.Request) error {
 	// Set status code to 204 to handle preflight CORS check
 	if r.Method == "OPTIONS" {
 		rw.WriteHeader(http.StatusNoContent)
@@ -451,7 +483,7 @@ func (me *HttpHandler) handleUpload(rw *ops.InstrumentedResponseWriter, r *http.
 	}
 	upload := output.Upload
 	log.Debugf("uploaded replica key %q", upload)
-	rw.Op.Set("upload_s3_key", upload.PrefixString())
+	rw.Set("upload_s3_key", upload.PrefixString())
 
 	{
 		var metainfoBytes bytes.Buffer
@@ -527,7 +559,7 @@ func (me *HttpHandler) addUploadTorrent(mi *metainfo.MetaInfo, concealUploaderId
 	return nil
 }
 
-func (me *HttpHandler) handleUploads(rw *ops.InstrumentedResponseWriter, r *http.Request) error {
+func (me *HttpHandler) handleUploads(rw InstrumentedResponseWriter, r *http.Request) error {
 	resp := []objectInfo{} // Ensure not nil: I don't like 'null' as a response.
 	err := service.IterUploads(me.uploadsDir, func(iu service.IteredUpload) {
 		mi := iu.Metainfo
@@ -550,7 +582,7 @@ func (me *HttpHandler) handleUploads(rw *ops.InstrumentedResponseWriter, r *http
 	return encodeJsonResponse(rw, resp)
 }
 
-func (me *HttpHandler) handleDelete(rw *ops.InstrumentedResponseWriter, r *http.Request) (err error) {
+func (me *HttpHandler) handleDelete(rw InstrumentedResponseWriter, r *http.Request) (err error) {
 	link := r.URL.Query().Get("link")
 	m, err := metainfo.ParseMagnetUri(link)
 	if err != nil {
@@ -603,8 +635,8 @@ func (me *HttpHandler) handleDelete(rw *ops.InstrumentedResponseWriter, r *http.
 	return loadMetainfoErr
 }
 
-func (me *HttpHandler) handleMetadata(category string) func(*ops.InstrumentedResponseWriter, *http.Request) error {
-	return func(rw *ops.InstrumentedResponseWriter, r *http.Request) error {
+func (me *HttpHandler) handleMetadata(category string) func(InstrumentedResponseWriter, *http.Request) error {
+	return func(rw InstrumentedResponseWriter, r *http.Request) error {
 		query := r.URL.Query()
 		replicaLink := query.Get("replicaLink")
 		m, err := metainfo.ParseMagnetUri(replicaLink)
@@ -637,7 +669,7 @@ func (me *HttpHandler) handleMetadata(category string) func(*ops.InstrumentedRes
 		resp, err := doFirst(mr, me.HttpClient, func(r *http.Response) bool {
 			return r.StatusCode/100 == 2
 		}, func() (ret []string) {
-			for _, s := range gc.MetadataBaseUrls {
+			for _, s := range gc.GetMetadataBaseUrls() {
 				ret = append(ret, s+key)
 			}
 			return
@@ -750,10 +782,10 @@ func doFirst(
 	return ret.Response, ret.error
 }
 
-func (me *HttpHandler) handleSearch(rw *ops.InstrumentedResponseWriter, r *http.Request) error {
+func (me *HttpHandler) handleSearch(rw InstrumentedResponseWriter, r *http.Request) error {
 	searchTerm := r.URL.Query().Get("s")
 
-	rw.Op.Set("search_term", searchTerm)
+	rw.Set("search_term", searchTerm)
 	// me.GaSession.EventWithLabel("replica", "search", searchTerm)
 	if me.OnRequestReceived != nil {
 		me.OnRequestReceived("search", searchTerm)
@@ -763,16 +795,16 @@ func (me *HttpHandler) handleSearch(rw *ops.InstrumentedResponseWriter, r *http.
 	return nil
 }
 
-func (me *HttpHandler) handleDownload(rw *ops.InstrumentedResponseWriter, r *http.Request) error {
+func (me *HttpHandler) handleDownload(rw InstrumentedResponseWriter, r *http.Request) error {
 	return me.handleViewWith(rw, r, "attachment")
 }
 
-func (me *HttpHandler) handleView(rw *ops.InstrumentedResponseWriter, r *http.Request) error {
+func (me *HttpHandler) handleView(rw InstrumentedResponseWriter, r *http.Request) error {
 	return me.handleViewWith(rw, r, "inline")
 }
 
-func (me *HttpHandler) handleViewWith(rw *ops.InstrumentedResponseWriter, r *http.Request, inlineType string) error {
-	rw.Op.Set("inline_type", inlineType)
+func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Request, inlineType string) error {
+	rw.Set("inline_type", inlineType)
 
 	link := r.URL.Query().Get("link")
 
@@ -781,7 +813,7 @@ func (me *HttpHandler) handleViewWith(rw *ops.InstrumentedResponseWriter, r *htt
 		return handlerError{http.StatusBadRequest, errors.New("parsing magnet link: %v", err)}
 	}
 
-	rw.Op.Set("info_hash", m.InfoHash)
+	rw.Set("info_hash", m.InfoHash)
 
 	t, _, release := me.confluence.GetTorrent(m.InfoHash)
 	defer release()
@@ -789,20 +821,20 @@ func (me *HttpHandler) handleViewWith(rw *ops.InstrumentedResponseWriter, r *htt
 	gc := me.GlobalConfig()
 
 	spec := &torrent.TorrentSpec{
-		Trackers:    [][]string{gc.Trackers},
+		Trackers:    [][]string{gc.GetTrackers()},
 		InfoHash:    m.InfoHash,
 		DisplayName: m.DisplayName,
-		Webseeds:    gc.WebseedUrls(m.InfoHash.HexString()),
-		PeerAddrs:   gc.StaticPeerAddrs,
-		Sources:     gc.MetainfoUrls(m.InfoHash.HexString()),
+		Webseeds:    getWebseedUrls(gc, m.InfoHash.HexString()),
+		PeerAddrs:   gc.GetStaticPeerAddrs(),
+		Sources:     getMetainfoUrls(gc, m.InfoHash.HexString()),
 	}
 
 	// TODO: Remove this when infohash prefixing is used throughout.
 	var uploadSpec service.Upload
 	unwrapUploadSpecErr := uploadSpec.FromMagnet(m)
 	if unwrapUploadSpecErr == nil {
-		spec.Sources = append(spec.Sources, gc.MetainfoUrls(uploadSpec.PrefixString())...)
-		spec.Webseeds = append(spec.Webseeds, gc.WebseedUrls(uploadSpec.PrefixString())...)
+		spec.Sources = append(spec.Sources, getMetainfoUrls(gc, uploadSpec.PrefixString())...)
+		spec.Webseeds = append(spec.Webseeds, getWebseedUrls(gc, uploadSpec.PrefixString())...)
 	} else {
 		log.Debugf("unwrapping upload spec from magnet link: %v", unwrapUploadSpecErr)
 	}
@@ -837,7 +869,7 @@ func (me *HttpHandler) handleViewWith(rw *ops.InstrumentedResponseWriter, r *htt
 		rw.Header().Set("Content-Disposition", inlineType+"; filename*=UTF-8''"+url.QueryEscape(filename))
 	}
 
-	rw.Op.Set("download_filename", filename)
+	rw.Set("download_filename", filename)
 	switch inlineType {
 	case "inline":
 		// me.GaSession.EventWithLabel("replica", "view", ext)
@@ -858,16 +890,16 @@ func (me *HttpHandler) handleViewWith(rw *ops.InstrumentedResponseWriter, r *htt
 	return nil
 }
 
-func metainfoUrls(link metainfo.Magnet, config *config.ReplicaOptions) (ret []string) {
-	ret = config.MetainfoUrls(link.InfoHash.HexString())
+func metainfoUrls(link metainfo.Magnet, config ReplicaOptions) (ret []string) {
+	ret = getMetainfoUrls(config, link.InfoHash.HexString())
 	var upload service.Upload
 	if upload.FromMagnet(link) == nil {
-		ret = append(ret, config.MetainfoUrls(upload.PrefixString())...)
+		ret = append(ret, getMetainfoUrls(config, upload.PrefixString())...)
 	}
 	return
 }
 
-func (me *HttpHandler) handleObjectInfo(rw *ops.InstrumentedResponseWriter, r *http.Request) error {
+func (me *HttpHandler) handleObjectInfo(rw InstrumentedResponseWriter, r *http.Request) error {
 	query := r.URL.Query()
 	replicaLink := query.Get("replicaLink")
 	m, err := metainfo.ParseMagnetUri(replicaLink)
@@ -958,5 +990,5 @@ func encodeJsonErrorResponse(rw http.ResponseWriter, resp interface{}, statusCod
 }
 
 func (me *HttpHandler) addImplicitTrackers(t *torrent.Torrent) {
-	t.AddTrackers([][]string{me.GlobalConfig().Trackers})
+	t.AddTrackers([][]string{me.GlobalConfig().GetTrackers()})
 }
