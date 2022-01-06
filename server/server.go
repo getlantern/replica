@@ -65,21 +65,20 @@ type ReplicaOptions interface {
 	GetStaticPeerAddrs() []string
 	// Merged with the webseed URLs when the metadata and data buckets are merged.
 	GetMetadataBaseUrls() []string
-	// Default endpoint, if nothing else is found
-	GetReplicaRustDefaultEndpoint() string
-	// map of region to endpoint url
-	GetReplicaRustEndpoints() map[string]string
+	// The replica-rust endpoint to use. There's only one because object uploads and ownership are
+	// fixed to a specific bucket, and replica-rust endpoints are 1:1 with a bucket.
+	GetReplicaRustEndpoint() string
 }
 
-func getMetainfoUrls(gc ReplicaOptions, prefix string) (ret []string) {
-	for _, s := range gc.GetWebseedBaseUrls() {
+func getMetainfoUrls(ro ReplicaOptions, prefix string) (ret []string) {
+	for _, s := range ro.GetWebseedBaseUrls() {
 		ret = append(ret, fmt.Sprintf("%s%s/torrent", s, prefix))
 	}
 	return
 }
 
-func getWebseedUrls(gc ReplicaOptions, prefix string) (ret []string) {
-	for _, s := range gc.GetWebseedBaseUrls() {
+func getWebseedUrls(ro ReplicaOptions, prefix string) (ret []string) {
+	for _, s := range ro.GetWebseedBaseUrls() {
 		ret = append(ret, fmt.Sprintf("%s%s/data/", s, prefix))
 	}
 	return
