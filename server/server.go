@@ -39,9 +39,7 @@ import (
 
 const handlerLogPrefix = "replica-pkg"
 
-var (
-	log = golog.LoggerFor(handlerLogPrefix)
-)
+var log = golog.LoggerFor(handlerLogPrefix)
 
 type HttpHandler struct {
 	// Used to handle non-Replica specific routes. (Some of the hard work has been done!). This will
@@ -168,12 +166,12 @@ func NewHTTPHandler(
 ) (_ *HttpHandler, err error) {
 	replicaCacheDir := prepareCacheDir(input.AppName, input.CacheDir)
 	uploadsDir := filepath.Join(input.RootUploadsDir, "replica", "uploads")
-	err = os.MkdirAll(uploadsDir, 0700)
+	err = os.MkdirAll(uploadsDir, 0o700)
 	if err != nil {
 		return nil, errors.New("mkdir uploadsDir %v: %v", uploadsDir, err)
 	}
 	replicaDataDir := filepath.Join(replicaCacheDir, "data")
-	err = os.MkdirAll(replicaDataDir, 0700)
+	err = os.MkdirAll(replicaDataDir, 0o700)
 	if err != nil {
 		return nil, errors.New("mkdir replicaDataDir %v: %v", replicaDataDir, err)
 	}
@@ -195,7 +193,7 @@ func NewHTTPHandler(
 	}
 	cfg.HeaderObfuscationPolicy.Preferred = true
 	cfg.HeaderObfuscationPolicy.RequirePreferred = true
-	//cfg.Debug = true
+	// cfg.Debug = true
 	cfg.Logger = anacrolixLogger.Default.WithFilter(func(m anacrolixLogger.Msg) bool {
 		return !m.HasValue("upnp-discover")
 	}).FilterLevel(anacrolixLogger.Info).WithContextText(handlerLogPrefix + ".torrent-client")
@@ -386,7 +384,7 @@ func (me *HttpHandler) writeNewUploadAuthTokenFile(auth string, prefix service.P
 	f, err := os.OpenFile(
 		tokenFilePath,
 		os.O_WRONLY|os.O_CREATE|os.O_EXCL|os.O_TRUNC,
-		0440,
+		0o440,
 	)
 	if err != nil {
 		return err
@@ -512,7 +510,7 @@ func (me *HttpHandler) handleUpload(rw InstrumentedResponseWriter, r *http.Reque
 		// Move the temporary file, which contains the upload body, to the data directory for the
 		// torrent client, in the location it expects.
 		dst := filepath.Join(append([]string{me.dataDir, upload.String()}, output.Info.UpvertedFiles()[0].Path...)...)
-		err = os.MkdirAll(filepath.Dir(dst), 0700)
+		err = os.MkdirAll(filepath.Dir(dst), 0o700)
 		if err != nil {
 			return errors.New("creating data directory: %v: %v", dst, err)
 		}
@@ -590,7 +588,6 @@ func (me *HttpHandler) handleDelete(rw InstrumentedResponseWriter, r *http.Reque
 	m, err := metainfo.ParseMagnetUri(link)
 	if err != nil {
 		return handlerError{http.StatusBadRequest, errors.New("parsing magnet link: %v", err)}
-
 	}
 
 	var upload service.Upload
@@ -946,7 +943,7 @@ func firstNonEmptyString(ss ...string) string {
 	return ""
 }
 
-const uploadDirPerms = 0750
+const uploadDirPerms = 0o750
 
 // r is over the metainfo bytes.
 func storeUploadedTorrent(r io.Reader, path string) error {
@@ -954,7 +951,7 @@ func storeUploadedTorrent(r io.Reader, path string) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0640)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o640)
 	if err != nil {
 		return err
 	}

@@ -59,10 +59,10 @@ func TestS3GetAllObjectsManually(t *testing.T) {
 	m := mockedS3Client{
 		objectsPerPage: 1,
 		objects: []*s3.Object{
-			&s3.Object{
+			{
 				Key: aws.String("key1"),
 			},
-			&s3.Object{
+			{
 				Key: aws.String("key2"),
 			},
 		},
