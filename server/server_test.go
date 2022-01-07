@@ -54,7 +54,7 @@ func TestUploadAndDelete(t *testing.T) {
 	require.NoError(t, err)
 	// We expect a token file and metainfo.
 	require.Equal(t, 2, len(files))
-	require.Equal(t, 1, len(handler.torrentClient.Torrents()))
+	assert.Len(t, handler.torrentClient.Torrents(), 0)
 
 	magnetLink := uploadedObjectInfo.Link
 

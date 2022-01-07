@@ -41,4 +41,5 @@ func (me *NewHttpHandlerInput) SetDefaults() {
 			return false
 		}
 	}
+	me.StoreMetainfoFileAndTokenLocally = true
 }
