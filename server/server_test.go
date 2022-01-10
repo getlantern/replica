@@ -98,7 +98,7 @@ func TestUploadAndDelete_DontSaveUploads(t *testing.T) {
 	input.RootUploadsDir = dir
 	input.AddUploadsToTorrentClient = false
 	input.StoreUploadsLocally = false
-	input.StoreMetainfoFileAndTokenLocally = false
+	input.NoStoreMetainfoFileAndTokenLocally = true
 	handler, err := NewHTTPHandler(input)
 	require.NoError(t, err)
 	defer handler.Close()

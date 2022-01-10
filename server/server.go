@@ -107,11 +107,12 @@ type NewHttpHandlerInput struct {
 	// Retain a copy of upload file data. This would save downloading our own uploaded content if we
 	// intend to seed it.
 	StoreUploadsLocally bool
-	// Create a metainfo file and admin token
-	// Admin token is used if the uploader wants to delete their file later on
-	StoreMetainfoFileAndTokenLocally bool
-	OnRequestReceived                func(handler string, extraInfo string)
-	GlobalConfig                     func() ReplicaOptions
+	// Create a metainfo file and admin token.
+	// Admin token is used if the uploader wants to delete their file later on.
+	// By default, store metainfo and tokens locally
+	NoStoreMetainfoFileAndTokenLocally bool
+	OnRequestReceived                  func(handler string, extraInfo string)
+	GlobalConfig                       func() ReplicaOptions
 	// This sets the DHT node as 'read-only' as well as disable seeding in the
 	// torrent client
 	ReadOnlyNode bool
@@ -485,7 +486,7 @@ func (me *HttpHandler) handleUpload(rw InstrumentedResponseWriter, r *http.Reque
 	log.Debugf("uploaded replica key %q", upload)
 	rw.Set("upload_s3_key", upload.PrefixString())
 
-	if me.StoreMetainfoFileAndTokenLocally {
+	if !me.NoStoreMetainfoFileAndTokenLocally {
 		var metainfoBytes bytes.Buffer
 		err = output.MetaInfo.Write(&metainfoBytes)
 		if err != nil {
