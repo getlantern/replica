@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/anacrolix/confluence v1.8.1
 	github.com/anacrolix/dht/v2 v2.10.6-0.20211007004332-99263ec9c1c8
+	github.com/anacrolix/go-libutp v1.0.5 // indirect
 	github.com/anacrolix/log v0.10.0
 	github.com/anacrolix/torrent v1.35.0
 	github.com/aws/aws-sdk-go v1.28.9
@@ -26,5 +27,3 @@ require (
 replace github.com/lucas-clemente/quic-go => github.com/getlantern/quic-go v0.0.0-20211103152344-c9ce5bfd4854
 
 replace github.com/refraction-networking/utls => github.com/getlantern/utls v0.0.0-20211116192935-1abdc4b1acab
-
-replace github.com/anacrolix/go-libutp => github.com/getlantern/go-libutp v1.0.3-0.20210202003624-785b5fda134e
