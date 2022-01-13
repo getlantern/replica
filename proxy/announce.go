@@ -1,3 +1,8 @@
+// proxy package contains code to:
+// - Announce an infohash to the DHT network
+// - Get peers who've announced to a specific infohash from the DHT network
+//
+// Terminology here is taken from http://bittorrent.org/beps/bep_0005.html
 package proxy
 
 import (
