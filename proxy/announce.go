@@ -36,6 +36,8 @@ func Announce(ss []*dht.Server, ihs [][20]byte, port int) error {
 // Sends peers found by any of the servers for any of the info-hashes to the channel. A single
 // traversal is initiated for each combination of server and info-hash. There can be duplicate
 // peers. Returns when all traversals are exhausted or there's an error initiating a traversal.
+//
+// 'peers' will close when this function returns.
 func GetPeers(ctx context.Context, ss []*dht.Server, ihs [][20]byte, peers chan<- dht.Peer) error {
 	var wg sync.WaitGroup
 	for _, s := range ss {
@@ -49,6 +51,7 @@ func GetPeers(ctx context.Context, ss []*dht.Server, ihs [][20]byte, peers chan<
 			go func() {
 				defer wg.Done()
 				defer a.Close()
+				defer close(peers)
 				for pv := range a.Peers {
 					for _, p := range pv.Peers {
 						select {
