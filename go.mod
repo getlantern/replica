@@ -5,10 +5,9 @@ go 1.16
 require (
 	github.com/anacrolix/confluence v1.9.0
 	github.com/anacrolix/dht/v2 v2.15.1
-	github.com/anacrolix/go-libutp v1.0.5 // indirect
 	github.com/anacrolix/log v0.10.0
 	github.com/anacrolix/publicip v0.2.0
-	github.com/anacrolix/torrent v1.35.1-0.20211104090255-eaeb38b18c6a
+	github.com/anacrolix/torrent v1.40.0
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/getlantern/borda v0.0.0-20211118145443-aeeab8933313
 	github.com/getlantern/errors v1.0.1
