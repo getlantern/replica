@@ -44,10 +44,8 @@ func TestP2pNetworking(t *testing.T) {
 	getPeersCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	peersChan := make(chan Peer)
-	peersDone := make(chan struct{})
 	matchedInfohashes := 0
 	go func() {
-		defer close(peersDone)
 		doneInfohashes := make(map[[20]byte]struct{})
 		for peer := range peersChan {
 			t.Logf("got peer %v", peer)
@@ -70,7 +68,6 @@ func TestP2pNetworking(t *testing.T) {
 	}()
 	t.Logf("getting peers")
 	err = GetPeers(getPeersCtx, []*dht.Server{s}, ihs, peersChan)
-	<-peersDone
 	// XXX <08-01-22, soltzen> DeadlineExceeded is fine here: this just means
 	// we've collected as much as we can with the time we have
 	if err != nil && err != context.DeadlineExceeded {
