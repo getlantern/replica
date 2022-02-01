@@ -70,6 +70,5 @@ func GetPeers(ctx context.Context, ss []*dht.Server, ihs [][20]byte, peers chan<
 		}
 	}
 	wg.Wait()
-	close(peers)
 	return ctx.Err()
 }
