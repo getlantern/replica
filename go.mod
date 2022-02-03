@@ -7,7 +7,7 @@ require (
 	github.com/anacrolix/dht/v2 v2.15.1
 	github.com/anacrolix/log v0.10.0
 	github.com/anacrolix/publicip v0.2.0
-	github.com/anacrolix/torrent v1.40.0
+	github.com/anacrolix/torrent v1.40.2-0.20220131020720-c9a053143ffd
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/getlantern/borda v0.0.0-20211118145443-aeeab8933313
 	github.com/getlantern/errors v1.0.1
@@ -17,7 +17,7 @@ require (
 	github.com/getlantern/ops v0.0.0-20200403153110-8476b16edcd6
 	github.com/getsentry/sentry-go v0.11.0
 	github.com/google/uuid v1.3.0
-	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/gorilla/mux v1.8.0
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/leanovate/gopter v0.2.9
 	github.com/stretchr/testify v1.7.0
