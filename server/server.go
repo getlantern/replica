@@ -26,6 +26,7 @@ import (
 	"github.com/getlantern/errors"
 	"github.com/getlantern/golog"
 	"github.com/getsentry/sentry-go"
+	"github.com/gorilla/mux"
 	"github.com/kennygrant/sanitize"
 
 	"github.com/anacrolix/confluence/confluence"
@@ -49,7 +50,7 @@ type HttpHandler struct {
 	// Where to store torrent client data.
 	dataDir     string
 	uploadsDir  string
-	mux         http.ServeMux
+	router      *mux.Router
 	searchProxy http.Handler
 	NewHttpHandlerInput
 	uploadStorage  storage.ClientImplCloser
@@ -249,6 +250,7 @@ func NewHTTPHandler(
 		torrentClient: torrentClient,
 		dataDir:       replicaDataDir,
 		uploadsDir:    uploadsDir,
+		router:        mux.NewRouter(),
 		searchProxy: http.StripPrefix("/search", proxyHandler(
 			input,
 			nil)),
@@ -260,27 +262,46 @@ func NewHTTPHandler(
 		defaultStorage:      defaultStorage,
 		NewHttpHandlerInput: input,
 	}
-	handler.mux.HandleFunc("/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+
+	// XXX <03-02-22, soltzen> See
+	// https://github.com/getlantern/lantern-internal/issues/5226 for more
+	// context.
+	// Requests coming from lantern-desktop's UI client
+	// will always carry lantern-desktop's server address (i.e.,
+	// [here](https://github.com/getlantern/lantern-desktop/blob/87370cca9c895d0e0296b4d16e292ad8adbdae33/server/defaults_static.go#L1))
+	// in their 'Host' header (like this: 'Host: localhost:16823'). This is
+	// problamatic for Replica servers. So, best to either wipe it or assign it
+	// as the URL's host
+	//
+	// This middleware runs before all routes
+	prepareRequestMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Host = r.URL.Host
+			next.ServeHTTP(w, r)
+		})
+	}
+	handler.router.Use(prepareRequestMiddleware)
+	handler.router.HandleFunc("/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	handler.mux.HandleFunc("/search", handler.wrapHandlerError("replica_search", handler.handleSearch))
-	handler.mux.HandleFunc("/search/serp_web", handler.wrapHandlerError("replica_search", handler.handleSearch))
-	handler.mux.HandleFunc("/thumbnail", handler.wrapHandlerError("replica_thumbnail", handler.handleMetadata("thumbnail")))
-	handler.mux.HandleFunc("/duration", handler.wrapHandlerError("replica_duration", handler.handleMetadata("duration")))
-	handler.mux.HandleFunc("/upload", handler.wrapHandlerError("replica_upload", handler.handleUpload))
-	handler.mux.HandleFunc("/uploads", handler.wrapHandlerError("replica_uploads", handler.handleUploads))
-	handler.mux.HandleFunc("/view", handler.wrapHandlerError("replica_view", handler.handleView))
-	handler.mux.HandleFunc("/download", handler.wrapHandlerError("replica_view", handler.handleDownload))
-	handler.mux.HandleFunc("/delete", handler.wrapHandlerError("replica_delete", handler.handleDelete))
-	handler.mux.HandleFunc("/object_info", handler.wrapHandlerError("replica_object_info", handler.handleObjectInfo))
-	handler.mux.HandleFunc("/debug/dht", func(w http.ResponseWriter, r *http.Request) {
+	handler.router.HandleFunc("/search", handler.wrapHandlerError("replica_search", handler.handleSearch))
+	handler.router.HandleFunc("/search/serp_web", handler.wrapHandlerError("replica_search", handler.handleSearch))
+	handler.router.HandleFunc("/thumbnail", handler.wrapHandlerError("replica_thumbnail", handler.handleMetadata("thumbnail")))
+	handler.router.HandleFunc("/duration", handler.wrapHandlerError("replica_duration", handler.handleMetadata("duration")))
+	handler.router.HandleFunc("/upload", handler.wrapHandlerError("replica_upload", handler.handleUpload))
+	handler.router.HandleFunc("/uploads", handler.wrapHandlerError("replica_uploads", handler.handleUploads))
+	handler.router.HandleFunc("/view", handler.wrapHandlerError("replica_view", handler.handleView))
+	handler.router.HandleFunc("/download", handler.wrapHandlerError("replica_view", handler.handleDownload))
+	handler.router.HandleFunc("/delete", handler.wrapHandlerError("replica_delete", handler.handleDelete))
+	handler.router.HandleFunc("/object_info", handler.wrapHandlerError("replica_object_info", handler.handleObjectInfo))
+	handler.router.HandleFunc("/debug/dht", func(w http.ResponseWriter, r *http.Request) {
 		for _, ds := range torrentClient.DhtServers() {
 			ds.WriteStatus(w)
 		}
 	})
 	// TODO(anacrolix): Actually not much of Confluence is used now, probably none of the
 	// routes, so this might go away soon.
-	handler.mux.Handle("/", &handler.confluence)
+	handler.router.Handle("/", &handler.confluence)
 
 	if input.AddUploadsToTorrentClient {
 		if err := service.IterUploads(uploadsDir, func(iu service.IteredUpload) {
@@ -305,7 +326,7 @@ func NewHTTPHandler(
 func (me *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("replica server request path: %q", r.URL.Path)
 	me.ProcessCORSHeaders(w.Header(), r)
-	me.mux.ServeHTTP(w, r)
+	me.router.ServeHTTP(w, r)
 }
 
 func (me *HttpHandler) Close() {

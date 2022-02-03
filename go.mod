@@ -17,6 +17,7 @@ require (
 	github.com/getlantern/ops v0.0.0-20200403153110-8476b16edcd6
 	github.com/getsentry/sentry-go v0.11.0
 	github.com/google/uuid v1.3.0
+	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/leanovate/gopter v0.2.9
 	github.com/stretchr/testify v1.7.0
