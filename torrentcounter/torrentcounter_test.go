@@ -38,7 +38,7 @@ func TestTorrentCounter(t *testing.T) {
 		// - Wait a bit
 		// - Then drop each one
 		var wg sync.WaitGroup
-		for i := 0; i < 10000; i++ {
+		for i := 0; i < 1000; i++ {
 			wg.Add(1)
 			rih := randomInfohashes[mathRand.Intn(len(randomInfohashes))]
 			go func() {
