@@ -30,7 +30,7 @@ import (
 	"github.com/kennygrant/sanitize"
 
 	"github.com/anacrolix/confluence/confluence"
-	anacrolixLogger "github.com/anacrolix/log"
+	analog "github.com/anacrolix/log"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	metascrubber "github.com/getlantern/meta-scrubber"
@@ -195,7 +195,7 @@ func NewHTTPHandler(
 	cfg.HeaderObfuscationPolicy.Preferred = true
 	cfg.HeaderObfuscationPolicy.RequirePreferred = true
 	// cfg.Debug = true
-	cfg.Logger = anacrolixLogger.Default.WithContextText(handlerLogPrefix + ".torrent-client")
+	cfg.Logger = analog.Default.WithContextText(handlerLogPrefix + ".torrent-client")
 
 	var opts sqliteStorage.NewDirectStorageOpts
 	opts.Path = filepath.Join(replicaCacheDir, "storage-cache.db")
