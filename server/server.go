@@ -297,9 +297,10 @@ func NewHTTPHandler(
 			ds.WriteStatus(w)
 		}
 	})
-	// TODO(anacrolix): Actually not much of Confluence is used now, probably none of the
-	// routes, so this might go away soon.
-	handler.router.Handle("/", &handler.confluence)
+	// TODO(anacrolix): Actually not much of Confluence is used now, probably none of the routes, so
+	// this might go away soon.
+	// Confluence embeds its own routes, so make sure to pass the path and request in its entirety.
+	handler.router.PathPrefix("/").Handler(&handler.confluence)
 
 	if input.AddUploadsToTorrentClient {
 		if err := service.IterUploads(uploadsDir, func(iu service.IteredUpload) {
