@@ -195,9 +195,7 @@ func NewHTTPHandler(
 	cfg.HeaderObfuscationPolicy.Preferred = true
 	cfg.HeaderObfuscationPolicy.RequirePreferred = true
 	// cfg.Debug = true
-	cfg.Logger = anacrolixLogger.Default.WithFilter(func(m anacrolixLogger.Msg) bool {
-		return !m.HasValue("upnp-discover")
-	}).FilterLevel(anacrolixLogger.Info).WithContextText(handlerLogPrefix + ".torrent-client")
+	cfg.Logger = anacrolixLogger.Default.WithContextText(handlerLogPrefix + ".torrent-client")
 
 	var opts sqliteStorage.NewDirectStorageOpts
 	opts.Path = filepath.Join(replicaCacheDir, "storage-cache.db")

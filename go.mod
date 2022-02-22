@@ -4,10 +4,10 @@ go 1.16
 
 require (
 	github.com/anacrolix/confluence v1.9.0
-	github.com/anacrolix/dht/v2 v2.15.1
-	github.com/anacrolix/log v0.10.0
+	github.com/anacrolix/dht/v2 v2.15.2-0.20220123034220-0538803801cb
+	github.com/anacrolix/log v0.10.1-0.20220123034749-3920702c17f8
 	github.com/anacrolix/publicip v0.2.0
-	github.com/anacrolix/torrent v1.40.2-0.20220131020720-c9a053143ffd
+	github.com/anacrolix/torrent v1.40.2-0.20220209232239-47a15797a47f
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/getlantern/borda v0.0.0-20211118145443-aeeab8933313
 	github.com/getlantern/errors v1.0.1
@@ -21,8 +21,6 @@ require (
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/leanovate/gopter v0.2.9
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa // indirect
-	golang.org/x/net v0.0.0-20211111160137-58aab5ef257a // indirect
 )
 
 replace github.com/lucas-clemente/quic-go => github.com/getlantern/quic-go v0.0.0-20211103152344-c9ce5bfd4854
