@@ -736,6 +736,9 @@ func doFirst(
 	filter func(r *http.Response) bool,
 	urls []string,
 ) (*http.Response, error) {
+	if len(urls) == 0 {
+		return nil, errors.New("no urls specified")
+	}
 	log.Debugf("trying urls %q", urls)
 	type result struct {
 		urlIndex int
