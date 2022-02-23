@@ -843,6 +843,8 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 
 	gc := me.GlobalConfig()
 
+	log.Debugf("adding static peers: %q", gc.GetStaticPeerAddrs())
+
 	spec := &torrent.TorrentSpec{
 		Trackers:    [][]string{gc.GetTrackers()},
 		InfoHash:    m.InfoHash,
