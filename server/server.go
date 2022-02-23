@@ -695,6 +695,9 @@ func (me *HttpHandler) handleMetadata(category string) func(InstrumentedResponse
 			return
 		}())
 		if err != nil {
+			if stdErrors.Is(err, r.Context().Err()) {
+				return nil
+			}
 			return errors.New("doing http metadata request: %v", err)
 		}
 		defer resp.Body.Close()
