@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/anacrolix/confluence v1.9.0
 	github.com/anacrolix/dht/v2 v2.15.2-0.20220123034220-0538803801cb
-	github.com/anacrolix/log v0.10.1-0.20220123034749-3920702c17f8
+	github.com/anacrolix/log v0.13.0
 	github.com/anacrolix/publicip v0.2.0
 	github.com/anacrolix/torrent v1.40.2-0.20220209232239-47a15797a47f
 	github.com/aws/aws-sdk-go v1.28.9
