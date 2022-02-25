@@ -7,7 +7,7 @@ require (
 	github.com/anacrolix/dht/v2 v2.15.2-0.20220123034220-0538803801cb
 	github.com/anacrolix/log v0.13.0
 	github.com/anacrolix/publicip v0.2.0
-	github.com/anacrolix/torrent v1.40.2-0.20220209232239-47a15797a47f
+	github.com/anacrolix/torrent v1.41.1-0.20220225085947-bf81f4a52868
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/getlantern/borda v0.0.0-20211118145443-aeeab8933313
 	github.com/getlantern/errors v1.0.1
