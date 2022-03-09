@@ -166,6 +166,7 @@ func NewHTTPHandler(
 	input NewHttpHandlerInput,
 ) (_ *HttpHandler, err error) {
 	replicaCacheDir := prepareCacheDir(input.AppName, input.CacheDir)
+	log.Debugf("replica cache dir: %q", replicaCacheDir)
 	uploadsDir := filepath.Join(input.RootUploadsDir, "replica", "uploads")
 	err = os.MkdirAll(uploadsDir, 0o700)
 	if err != nil {
