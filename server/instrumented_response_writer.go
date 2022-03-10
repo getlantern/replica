@@ -1,6 +1,11 @@
 package server
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+
+	"github.com/getlantern/eventual"
+)
 
 // An http.ResponseWriter that exposes the ability to instrument operations.
 type InstrumentedResponseWriter interface {
@@ -26,6 +31,25 @@ func (rw *NoopInstrumentedResponseWriter) Finish() {}
 func (rw *NoopInstrumentedResponseWriter) FailIf(err error) {
 }
 
+// Set backup index values
+// Leave durations as 0 for sane defaults
+func (me *NewHttpHandlerInput) SetLocalIndex(
+	path eventual.Value,
+	eventualFetchTimeout time.Duration,
+	maxWaitDelayForPrimarySearchIndex time.Duration,
+	requestInterceptor func(string, *http.Request) error) {
+	me.LocalIndexPath = path
+	me.LocalIndexPathFetchTimeout = eventualFetchTimeout
+	if me.LocalIndexPathFetchTimeout == 0 {
+		me.LocalIndexPathFetchTimeout = 3 * time.Second
+	}
+	me.MaxWaitDelayForPrimarySearchIndex = maxWaitDelayForPrimarySearchIndex
+	if me.MaxWaitDelayForPrimarySearchIndex == 0 {
+		me.MaxWaitDelayForPrimarySearchIndex = 3 * time.Second
+	}
+	me.DualSearchIndexRoundTripperInterceptRequestFunc = requestInterceptor
+}
+
 func (me *NewHttpHandlerInput) SetDefaults() {
 	if me.HttpClient == nil {
 		me.HttpClient = http.DefaultClient
@@ -42,4 +66,11 @@ func (me *NewHttpHandlerInput) SetDefaults() {
 		}
 	}
 	me.StoreMetainfoFileAndTokenLocally = true
+	me.InstrumentResponseWriter = func(
+		w http.ResponseWriter,
+		label string,
+	) InstrumentedResponseWriter {
+		return &NoopInstrumentedResponseWriter{w}
+	}
+
 }
