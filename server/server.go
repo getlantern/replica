@@ -138,7 +138,7 @@ func candidateCacheDirs(appName, inputCacheDir string) (ret []string) {
 	if err == nil {
 		ret = append(ret, osUserCacheDir)
 	} else {
-		log.Errorf("getting the user cache dir: %v", err)
+		log.Debugf("Ignorable error while getting the user cache dir: %v", err)
 	}
 	ret = append(ret, os.TempDir())
 	for i := range ret {
