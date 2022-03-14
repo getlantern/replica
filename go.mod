@@ -3,6 +3,7 @@ module github.com/getlantern/replica
 go 1.16
 
 require (
+	crawshaw.io/sqlite v0.3.3-0.20210127221821-98b1f83c5508
 	github.com/anacrolix/confluence v1.9.0
 	github.com/anacrolix/dht/v2 v2.15.2-0.20220123034220-0538803801cb
 	github.com/anacrolix/log v0.13.0
@@ -11,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/getlantern/borda v0.0.0-20211118145443-aeeab8933313
 	github.com/getlantern/errors v1.0.1
-	github.com/getlantern/eventual v1.0.0 // indirect
+	github.com/getlantern/eventual v1.0.0
 	github.com/getlantern/golog v0.0.0-20210606115803-bce9f9fe5a5f
 	github.com/getlantern/meta-scrubber v0.0.1
 	github.com/getlantern/ops v0.0.0-20200403153110-8476b16edcd6

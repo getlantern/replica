@@ -24,6 +24,7 @@ import (
 	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
 	borda "github.com/getlantern/borda/client"
 	"github.com/getlantern/errors"
+	"github.com/getlantern/eventual"
 	"github.com/getlantern/golog"
 	"github.com/getsentry/sentry-go"
 	"github.com/gorilla/mux"
@@ -127,6 +128,23 @@ type NewHttpHandlerInput struct {
 	ProcessCORSHeaders func(responseHeaders http.Header, r *http.Request) bool
 	// Instruments the given ResponseWriter for tracking metrics under the given label
 	InstrumentResponseWriter func(w http.ResponseWriter, label string) InstrumentedResponseWriter
+
+	// File path to a backup sqlite search index.
+	// If this is not nil, search requests would use this local index as a
+	// backup in case the remote replica-rust search index is unreachable.
+	//
+	// Use it by running NewHttpHandlerInput.SetLocalIndex().
+	LocalIndexPath eventual.Value
+	// Duration to wait until LocalIndexPath becomes available
+	LocalIndexPathFetchTimeout time.Duration
+	// Maximum wait delay for the primary search index to come back with a
+	// result.
+	// If it didn't come back by this time, use whatever value we got from the
+	// backup index, if any.
+	MaxWaitDelayForPrimarySearchIndex time.Duration
+	// Intercepts a Replica search request. If returned error is not-nil, the
+	// roundtripper will return that error. Used only for testing
+	DualSearchIndexRoundTripperInterceptRequestFunc func(string, *http.Request) error
 }
 
 // Returns candidate cache directories in order of preference.
