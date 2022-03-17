@@ -70,7 +70,7 @@ func runSearchRoundTripper(
 // length of time) before it returns the local index roundtripper's response.
 func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// If there's no local index index, just run it usually
-	if a.input.LocalIndexPath == nil {
+	if a.input.LocalIndexDhtupResource == nil {
 		return a.input.ProxiedRoundTripper.RoundTrip(req)
 	}
 
@@ -85,7 +85,7 @@ func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 		a.input.DualSearchIndexRoundTripperInterceptRequestFunc,
 	)
 	go runSearchRoundTripper(req,
-		&LocalIndexIndexRoundTripper{a.input},
+		&LocalIndexIndexRoundTripper{a.input, ctx},
 		LocalIndexRoundTripperKey,
 		backupRespChan,
 		a.input.DualSearchIndexRoundTripperInterceptRequestFunc,
@@ -99,6 +99,7 @@ func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 			log.Debugf("Received nil response from primary search roundtripper. Checking local index roundtripper...")
 		}
 	case <-time.After(a.input.MaxWaitDelayForPrimarySearchIndex):
+		// TODO <15-03-22, soltzen> Maybe make this wait duration halfway through the context's timeout?
 		log.Debugf("Primary search roundtripper timedout. checking local index roundtripper...")
 	case <-ctx.Done():
 		log.Debugf("Primary search roundtripper timedout. checking local index roundtripper...")

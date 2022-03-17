@@ -80,6 +80,7 @@ func NewSearchResult(stmt *sqlite.Stmt) (*SearchResult, error) {
 
 type LocalIndexIndexRoundTripper struct {
 	input NewHttpHandlerInput
+	ctx   context.Context
 }
 
 func (a *LocalIndexIndexRoundTripper) makeLocalIndexIndexResponse(
@@ -104,14 +105,24 @@ func (a *LocalIndexIndexRoundTripper) makeLocalIndexIndexResponse(
 
 func (a *LocalIndexIndexRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// If we don't have a backup index, just return
-	if a.input.LocalIndexPath == nil {
+	if a.input.LocalIndexDhtupResource == nil {
 		return nil, nil
 	}
 
-	p, ok := a.input.LocalIndexPath.Get(a.input.LocalIndexPathFetchTimeout)
-	if !ok {
-		return nil, nil
+	r, _, err := a.input.LocalIndexDhtupResource.Open(a.ctx)
+	if err != nil {
+		return nil, log.Errorf("opening dht resource: %v", err)
 	}
+	defer r.Close()
+
+	// TODO <15-03-22, soltzen> Do some magic here to turn this
+	// (io.ReadCloser)(r) into a file path to a fully-downloaded sqlite db
+	p := ""
+
+	// p, ok := a.input.LocalIndexPath.Get(a.input.LocalIndexPathFetchTimeout)
+	// if !ok {
+	// 	return nil, nil
+	// }
 
 	select {
 	case <-req.Context().Done():
@@ -130,7 +141,7 @@ func (a *LocalIndexIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 	}
 
 	results, err := fetchSearchResultsFromLocalIndex(
-		req.Context(), p.(string), q, limit, offset)
+		req.Context(), p, q, limit, offset)
 	if err != nil {
 		return nil, log.Errorf(
 			"while fetching search results from local index: %v", err)

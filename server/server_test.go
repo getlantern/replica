@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,6 +34,16 @@ func getDummySearchRequest(t *testing.T) (*http.Request, context.CancelFunc) {
 	return req, cancel
 }
 
+type MockDhtResourceImpl struct {
+	path string
+}
+
+func (me MockDhtResourceImpl) Open(ctx context.Context) (io.ReadCloser, bool, error) {
+	f, err := os.Open(filepath.Join(me.path))
+	require.NoError(t, err)
+	return f, false, nil
+}
+
 func TestSearch(t *testing.T) {
 	dir := t.TempDir()
 	input := NewHttpHandlerInput{}
@@ -46,12 +58,17 @@ func TestSearch(t *testing.T) {
 		},
 		HttpClient: http.DefaultClient,
 	}
-	localIndexPath := eventual.NewValue()
-	localIndexPath.Set(filepath.Join(projectpath.Root, "testdata", "backup-search-index.db"))
+	// cacheDir, err := os.UserCacheDir()
+	// if err != nil {
+	// 	cacheDir = os.TempDir()
+	// }
+	// cacheDir = filepath.Join(cacheDir, common.DefaultAppName, "dhtup", "data")
+	// os.MkdirAll(cacheDir, 0o700)
+	localIndexDhtResource := MockDhtResourceImpl{filepath.Join(projectpath.Root, "testdata", "backup-search-index.db")}
 
 	t.Run("Delay backup search roundtripper indefinitely. Primary search roundtripper should be used", func(t *testing.T) {
 		input.SetLocalIndex(
-			localIndexPath,
+			localIndexDhtResource,
 			0, // eventualFetchTimeout
 			0, // maxWaitDelayForPrimarySearchIndex
 			func(roundTripperKey string, req *http.Request) error {
@@ -78,7 +95,7 @@ func TestSearch(t *testing.T) {
 
 	t.Run("Delay primary search roundtripper indefinitely so that backup search roundtripper is used", func(t *testing.T) {
 		input.SetLocalIndex(
-			localIndexPath,
+			localIndexDhtResource,
 			0, // eventualFetchTimeout
 			0, // maxWaitDelayForPrimarySearchIndex
 			func(roundTripperKey string, req *http.Request) error {
@@ -105,7 +122,7 @@ func TestSearch(t *testing.T) {
 
 	t.Run("Return failure from primary search roundtripper so that backup search roundtripper is used", func(t *testing.T) {
 		input.SetLocalIndex(
-			localIndexPath,
+			localIndexDhtResource,
 			0, // eventualFetchTimeout
 			0, // maxWaitDelayForPrimarySearchIndex
 			func(roundTripperKey string, req *http.Request) error {

@@ -23,6 +23,7 @@ import (
 	"github.com/anacrolix/torrent/storage"
 	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
 	borda "github.com/getlantern/borda/client"
+	"github.com/getlantern/dhtup"
 	"github.com/getlantern/errors"
 	"github.com/getlantern/eventual"
 	"github.com/getlantern/golog"
@@ -134,9 +135,9 @@ type NewHttpHandlerInput struct {
 	// backup in case the remote replica-rust search index is unreachable.
 	//
 	// Use it by running NewHttpHandlerInput.SetLocalIndex().
-	LocalIndexPath eventual.Value
-	// Duration to wait until LocalIndexPath becomes available
-	LocalIndexPathFetchTimeout time.Duration
+	dhtContext              dhtup.Context
+	LocalIndexDhtupResource *dhtup.Resource
+	// LocalIndexPath          eventual.Value
 	// Maximum wait delay for the primary search index to come back with a
 	// result.
 	// If it didn't come back by this time, use whatever value we got from the
