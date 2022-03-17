@@ -68,6 +68,7 @@ type ReplicaOptions interface {
 	// The replica-rust endpoint to use. There's only one because object uploads and ownership are
 	// fixed to a specific bucket, and replica-rust endpoints are 1:1 with a bucket.
 	GetReplicaRustEndpoint() string
+	GetCustomCA() string
 }
 
 func getMetainfoUrls(ro ReplicaOptions, prefix string) (ret []string) {
