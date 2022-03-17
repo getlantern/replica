@@ -52,10 +52,9 @@ func (me *NewHttpHandlerInput) SetLocalIndex(
 
 func (me *NewHttpHandlerInput) SetDefaults() {
 	if me.HttpClient == nil {
-		me.HttpClient = http.DefaultClient
-	}
-	if me.ProxiedRoundTripper == nil {
-		me.ProxiedRoundTripper = http.DefaultTransport
+		me.HttpClient = &http.Client{
+			Transport: http.DefaultTransport,
+		}
 	}
 	if me.AddCommonHeaders == nil {
 		me.AddCommonHeaders = func(r *http.Request) {}

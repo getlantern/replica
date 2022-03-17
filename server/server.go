@@ -98,7 +98,11 @@ type NewHttpHandlerInput struct {
 	// is inaccessible
 	CacheDir string
 	// The Application Name, used for generating cache directories specific to this application
-	AppName    string
+	AppName string
+	// http.Client with a proxying RoundTripper that simultaneously utilizes
+	// domain-fronting and proxies for GET and HEAD requests, and that
+	// sequentially uses proxies and then domain-fronting for other types of
+	// requests.
 	HttpClient *http.Client
 	// For uploads, deletes, and other behaviour serviced by replica-rust using an API in the
 	// replica repo.
@@ -117,9 +121,6 @@ type NewHttpHandlerInput struct {
 	// This sets the DHT node as 'read-only' as well as disable seeding in the
 	// torrent client
 	ReadOnlyNode bool
-	// A proxying RoundTripper that simultaneously utilizes domain-fronting and proxies for GET and HEAD
-	// requests, and that sequentially uses proxies and then domain-fronting for other types of requests.
-	ProxiedRoundTripper http.RoundTripper
 	// Callback for adding common headers to outbound requests
 	AddCommonHeaders func(*http.Request)
 	// ProcessCORSHeaders processes CORS requests on localhost.

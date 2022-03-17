@@ -39,7 +39,9 @@ func TestProxy(t *testing.T) {
 				return u
 			},
 		},
-		ProxiedRoundTripper: m,
+		HttpClient: &http.Client{
+			Transport: m,
+		},
 		AddCommonHeaders: func(r *http.Request) {
 			r.Header.Add("x-lantern-device-id", "device")
 			r.Header.Add("x-lantern-pro-token", "token")
