@@ -71,7 +71,7 @@ func runSearchRoundTripper(
 func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// If there's no local index index, just run it usually
 	if a.input.LocalIndexPath == nil {
-		return a.input.ProxiedRoundTripper.RoundTrip(req)
+		return a.input.HttpClient.Transport.RoundTrip(req)
 	}
 
 	ctx, cancel := context.WithCancel(req.Context())
@@ -79,7 +79,7 @@ func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 	primaryRespChan := make(chan *http.Response)
 	backupRespChan := make(chan *http.Response)
 	go runSearchRoundTripper(req,
-		a.input.ProxiedRoundTripper,
+		a.input.HttpClient.Transport,
 		PrimarySearchRoundTripperKey,
 		primaryRespChan,
 		a.input.DualSearchIndexRoundTripperInterceptRequestFunc,
