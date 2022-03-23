@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -14,9 +15,117 @@ import (
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/getlantern/dhtup"
+	"github.com/getlantern/eventual/v2"
 	"github.com/getlantern/replica"
 	"github.com/getlantern/replica/service"
 )
+
+type LocalIndexDhtDownloader struct {
+	// FullyDownloadedLocalIndexPath to the latest fully-downloaded local index
+	FullyDownloadedLocalIndexPath eventual.Value
+
+	res                    dhtup.Resource
+	lastSuccessfulInfohash metainfo.Hash
+}
+
+func RunLocalIndexDownloader(
+	res dhtup.Resource,
+	checkForNewUpdatesEvery time.Duration,
+) *LocalIndexDhtDownloader {
+	l := &LocalIndexDhtDownloader{
+		res:                           res,
+		FullyDownloadedLocalIndexPath: eventual.NewValue(),
+	}
+	l.runDownloadRoutine(checkForNewUpdatesEvery)
+	return l
+}
+
+// runDownloadRoutine calls download() in a loop every "checkForNewUpdatesEvery".
+func (me *LocalIndexDhtDownloader) runDownloadRoutine(checkForNewUpdatesEvery time.Duration) {
+	go func() {
+	looper:
+		ctx, cancel := context.WithTimeout(context.Background(), checkForNewUpdatesEvery)
+		err, hasNewIndex := me.download(ctx)
+		if err != nil {
+			log.Debugf(
+				"ignorable error while downloading local index. Will try again in %v: %v",
+				checkForNewUpdatesEvery, err)
+			// If an error occurs, retry immediately
+			cancel()
+			goto looper
+		}
+		// Else, re-run every "checkForNewUpdatesEvery"
+		if !hasNewIndex {
+			log.Debugf("No new infohash since the last one [%s] for local index sqlite DB. Sleeping for a bit and checking for updates in %v",
+				me.lastSuccessfulInfohash.HexString(), checkForNewUpdatesEvery)
+		} else {
+			log.Debugf("Successfully downloaded new local index [%s]. Sleeping for a bit and checking for updates in %v",
+				me.lastSuccessfulInfohash.HexString(), checkForNewUpdatesEvery)
+		}
+		cancel()
+		time.Sleep(checkForNewUpdatesEvery)
+		goto looper
+	}()
+}
+
+// download fetches the bep46 payload for this resource and checks if it's
+// already been downloaded. If not, attempt to download this resource somewhere
+// in a temporary directory and set (or replace) the
+// LocalIndexDhtDownloader.FullyDownloadedLocalIndexPath value with the latest value.
+//
+// XXX <23-03-22, soltzen> Note that 'ctx' only affects the fetching of the
+// bep46 payload; not the downloading of the torrent. The reason is that
+// fetching the bep46 payload is usually a lot faster than downloading a
+// torrent, and if we're already downloading a hard torrent (i.e., not a lot of
+// seeders), it is really a shame to cancel the context last minute and try
+// again. This is relative, though, and should be monitored for better tuning.
+func (me *LocalIndexDhtDownloader) download(ctx context.Context) (err error, hasNewIndex bool) {
+	// Check if there's a new infohash to download (or download the last
+	// infohash if this is our first run)
+	bep46PayloadInfohash, err := me.res.FetchBep46Payload(ctx)
+	if err != nil {
+		return log.Errorf("while fetching bep46 payload: %v", err), false
+	}
+	if bytes.Equal(me.lastSuccessfulInfohash[:], bep46PayloadInfohash[:]) {
+		// No new infohash
+		return nil, false
+	}
+
+	// Fetch the torrent's io.ReadCloser and attempt to download it with
+	// io.Copy
+	r, _, err := me.res.FetchTorrentFileReader(ctx, bep46PayloadInfohash)
+	if err != nil {
+		return err, false
+	}
+	defer r.Close()
+	fd, err := os.CreateTemp("", "replica-local-index")
+	if err != nil {
+		return log.Errorf("Making local index file: %v", err), false
+	}
+	defer fd.Close()
+	// TODO <23-03-22, soltzen> Should we have a context-aware reader here?
+	_, err = io.Copy(fd, r)
+	if err != nil {
+		return log.Errorf("Copying local index torrent reader: %v", err), false
+	}
+
+	// Before replacing with the new value, see if there's already a value in
+	// FullyDownloadedLocalIndexPath. If so, reset the eventual.Value to avoid race conditions and
+	// unlink the file
+	expiredCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	v, _ := me.FullyDownloadedLocalIndexPath.Get(expiredCtx)
+	// XXX <28-03-2022, soltzen> We don't call what's the error: just care
+	// whether there's a value set
+	if v != nil {
+		me.FullyDownloadedLocalIndexPath.Reset()
+		os.Remove(v.(string))
+	}
+
+	me.FullyDownloadedLocalIndexPath.Set(fd.Name())
+	return nil, true
+}
 
 func encloseFts5QueryString(s string) string {
 	return `"` + strings.Replace(s, `"`, `""`, -1) + `"`
@@ -78,17 +187,16 @@ func NewSearchResult(stmt *sqlite.Stmt) (*SearchResult, error) {
 	}, nil
 }
 
-type LocalIndexIndexRoundTripper struct {
-	input NewHttpHandlerInput
+type LocalIndexRoundTripper struct {
+	localIndexDhtDownloader *LocalIndexDhtDownloader
 }
 
-func (a *LocalIndexIndexRoundTripper) makeLocalIndexIndexResponse(
+func (a *LocalIndexRoundTripper) makeLocalIndexResponse(
 	req *http.Request,
 	results []*SearchResult,
 	limit int,
 	offset int,
 ) ([]byte, error) {
-
 	ret := RespBody{
 		Results:      results,
 		TotalResults: len(results),
@@ -102,23 +210,21 @@ func (a *LocalIndexIndexRoundTripper) makeLocalIndexIndexResponse(
 	return b, nil
 }
 
-func (a *LocalIndexIndexRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	// If we don't have a backup index, just return
-	if a.input.LocalIndexPath == nil {
-		return nil, nil
+func (a *LocalIndexRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// If we don't have a backup index, just return.
+	// This should never happen, but just in case
+	if a.localIndexDhtDownloader == nil {
+		return nil, log.Errorf("No local index dhtup resource specified")
 	}
 
-	p, ok := a.input.LocalIndexPath.Get(a.input.LocalIndexPathFetchTimeout)
-	if !ok {
-		return nil, nil
+	// This function guarantees that the fetched local index will be
+	// fully-downloaded to the file system
+	fp, err := a.localIndexDhtDownloader.FullyDownloadedLocalIndexPath.Get(req.Context())
+	if err != nil {
+		return nil, log.Errorf("while opening dht resource: %v", err)
 	}
 
-	select {
-	case <-req.Context().Done():
-		return nil, req.Context().Err()
-	default:
-	}
-
+	// Prep parameters, call the search index, and prepare response object
 	q := req.URL.Query().Get("s")
 	offset, err := strconv.Atoi(req.URL.Query().Get("offset"))
 	if err != nil {
@@ -128,23 +234,24 @@ func (a *LocalIndexIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 	if err != nil {
 		limit = 20
 	}
-
 	results, err := fetchSearchResultsFromLocalIndex(
-		req.Context(), p.(string), q, limit, offset)
+		req.Context(), fp.(string), q, limit, offset)
 	if err != nil {
 		return nil, log.Errorf(
 			"while fetching search results from local index: %v", err)
 	}
-	respBody, err := a.makeLocalIndexIndexResponse(req, results, limit, offset)
+	respBody, err := a.makeLocalIndexResponse(req, results, limit, offset)
 	if err != nil {
 		return nil, log.Errorf(" %v", err)
 	}
 
+	// One last check to see if our context died
 	select {
 	case <-req.Context().Done():
 		return nil, req.Context().Err()
 	default:
 	}
+
 	return &http.Response{
 		Status:        "200 OK",
 		StatusCode:    200,

@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/getlantern/eventual"
+	"github.com/getlantern/dhtup"
 )
 
 // An http.ResponseWriter that exposes the ability to instrument operations.
@@ -34,19 +34,10 @@ func (rw *NoopInstrumentedResponseWriter) FailIf(err error) {
 // Set backup index values
 // Leave durations as 0 for sane defaults
 func (me *NewHttpHandlerInput) SetLocalIndex(
-	path eventual.Value,
+	res dhtup.Resource,
 	eventualFetchTimeout time.Duration,
-	maxWaitDelayForPrimarySearchIndex time.Duration,
 	requestInterceptor func(string, *http.Request) error) {
-	me.LocalIndexPath = path
-	me.LocalIndexPathFetchTimeout = eventualFetchTimeout
-	if me.LocalIndexPathFetchTimeout == 0 {
-		me.LocalIndexPathFetchTimeout = 3 * time.Second
-	}
-	me.MaxWaitDelayForPrimarySearchIndex = maxWaitDelayForPrimarySearchIndex
-	if me.MaxWaitDelayForPrimarySearchIndex == 0 {
-		me.MaxWaitDelayForPrimarySearchIndex = 3 * time.Second
-	}
+	me.LocalIndexDhtDownloader = RunLocalIndexDownloader(res, 60*time.Minute)
 	me.DualSearchIndexRoundTripperInterceptRequestFunc = requestInterceptor
 }
 

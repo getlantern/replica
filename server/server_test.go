@@ -4,16 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/getlantern/eventual"
+	"github.com/anacrolix/missinggo"
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/getlantern/golog/testlog"
 	"github.com/getlantern/replica/projectpath"
 	"github.com/getlantern/replica/service"
@@ -22,7 +25,7 @@ import (
 )
 
 func getDummySearchRequest(t *testing.T) (*http.Request, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	req, err := http.NewRequestWithContext(ctx, "GET", "/search", nil)
 	require.NoError(t, err)
 	q := req.URL.Query()
@@ -30,6 +33,39 @@ func getDummySearchRequest(t *testing.T) (*http.Request, context.CancelFunc) {
 	q.Add("limit", "5")
 	req.URL.RawQuery = q.Encode()
 	return req, cancel
+}
+
+type MockDhtResourceImpl struct {
+	path string
+}
+
+type fileReaderWithContext struct {
+	r *os.File
+}
+
+func (r fileReaderWithContext) ReadContext(ctx context.Context, b []byte) (int, error) {
+	return r.r.Read(b)
+}
+
+func (me MockDhtResourceImpl) Open(ctx context.Context) (io.ReadCloser, bool, error) {
+	f, err := os.Open(filepath.Join(me.path))
+	if err != nil {
+		return nil, false, err
+	}
+	return f, false, nil
+}
+
+func (me MockDhtResourceImpl) FetchBep46Payload(context.Context) (metainfo.Hash, error) {
+	// Make it return "something". Returning an empty hash will not trigger a download
+	return metainfo.Hash{0x41}, nil
+}
+
+func (me MockDhtResourceImpl) FetchTorrentFileReader(context.Context, metainfo.Hash) (missinggo.ReadContexter, bool, error) {
+	f, err := os.Open(filepath.Join(me.path))
+	if err != nil {
+		return nil, false, err
+	}
+	return fileReaderWithContext{f}, false, nil
 }
 
 func TestSearch(t *testing.T) {
@@ -46,14 +82,18 @@ func TestSearch(t *testing.T) {
 		},
 		HttpClient: http.DefaultClient,
 	}
-	localIndexPath := eventual.NewValue()
-	localIndexPath.Set(filepath.Join(projectpath.Root, "testdata", "backup-search-index.db"))
+	// cacheDir, err := os.UserCacheDir()
+	// if err != nil {
+	// 	cacheDir = os.TempDir()
+	// }
+	// cacheDir = filepath.Join(cacheDir, common.DefaultAppName, "dhtup", "data")
+	// os.MkdirAll(cacheDir, 0o700)
+	localIndexDhtResource := MockDhtResourceImpl{filepath.Join(projectpath.Root, "testdata", "backup-search-index.db")}
 
 	t.Run("Delay backup search roundtripper indefinitely. Primary search roundtripper should be used", func(t *testing.T) {
 		input.SetLocalIndex(
-			localIndexPath,
+			localIndexDhtResource,
 			0, // eventualFetchTimeout
-			0, // maxWaitDelayForPrimarySearchIndex
 			func(roundTripperKey string, req *http.Request) error {
 				if roundTripperKey == LocalIndexRoundTripperKey {
 					log.Debugf("Delaying %s", roundTripperKey)
@@ -78,13 +118,12 @@ func TestSearch(t *testing.T) {
 
 	t.Run("Delay primary search roundtripper indefinitely so that backup search roundtripper is used", func(t *testing.T) {
 		input.SetLocalIndex(
-			localIndexPath,
+			localIndexDhtResource,
 			0, // eventualFetchTimeout
-			0, // maxWaitDelayForPrimarySearchIndex
 			func(roundTripperKey string, req *http.Request) error {
 				if roundTripperKey == PrimarySearchRoundTripperKey {
 					log.Debugf("Delaying %s", roundTripperKey)
-					time.Sleep(10 * time.Second)
+					time.Sleep(100000 * time.Second)
 				}
 				return nil
 			},
@@ -105,9 +144,8 @@ func TestSearch(t *testing.T) {
 
 	t.Run("Return failure from primary search roundtripper so that backup search roundtripper is used", func(t *testing.T) {
 		input.SetLocalIndex(
-			localIndexPath,
+			localIndexDhtResource,
 			0, // eventualFetchTimeout
-			0, // maxWaitDelayForPrimarySearchIndex
 			func(roundTripperKey string, req *http.Request) error {
 				if roundTripperKey == PrimarySearchRoundTripperKey {
 					log.Debugf("Delaying %s", roundTripperKey)
