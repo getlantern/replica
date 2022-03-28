@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -47,12 +46,12 @@ func (r fileReaderWithContext) ReadContext(ctx context.Context, b []byte) (int, 
 	return r.r.Read(b)
 }
 
-func (me MockDhtResourceImpl) Open(ctx context.Context) (io.ReadCloser, bool, error) {
+func (me MockDhtResourceImpl) Open(ctx context.Context) (missinggo.ReadContexter, bool, error) {
 	f, err := os.Open(filepath.Join(me.path))
 	if err != nil {
 		return nil, false, err
 	}
-	return f, false, nil
+	return fileReaderWithContext{f}, false, nil
 }
 
 func (me MockDhtResourceImpl) FetchBep46Payload(context.Context) (metainfo.Hash, error) {

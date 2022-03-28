@@ -7,11 +7,12 @@ require (
 	github.com/anacrolix/confluence v1.9.0
 	github.com/anacrolix/dht/v2 v2.16.2-0.20220311024416-dd658f18fd51
 	github.com/anacrolix/log v0.13.1
+	github.com/anacrolix/missinggo v1.3.0
 	github.com/anacrolix/publicip v0.2.0
 	github.com/anacrolix/torrent v1.41.1-0.20220315024234-5a61d8f6ac93
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/getlantern/borda v0.0.0-20211118145443-aeeab8933313
-	github.com/getlantern/dhtup v0.0.0-20220328110708-54c1a983abef
+	github.com/getlantern/dhtup v0.0.0-20220405140526-61f98768fcbf
 	github.com/getlantern/errors v1.0.1
 	github.com/getlantern/eventual/v2 v2.0.2
 	github.com/getlantern/golog v0.0.0-20211223150227-d4d95a44d873

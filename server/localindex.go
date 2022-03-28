@@ -14,6 +14,7 @@ import (
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
+	"github.com/anacrolix/missinggo"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/getlantern/dhtup"
 	"github.com/getlantern/eventual/v2"
@@ -73,13 +74,6 @@ func (me *LocalIndexDhtDownloader) runDownloadRoutine(checkForNewUpdatesEvery ti
 // already been downloaded. If not, attempt to download this resource somewhere
 // in a temporary directory and set (or replace) the
 // LocalIndexDhtDownloader.FullyDownloadedLocalIndexPath value with the latest value.
-//
-// XXX <23-03-22, soltzen> Note that 'ctx' only affects the fetching of the
-// bep46 payload; not the downloading of the torrent. The reason is that
-// fetching the bep46 payload is usually a lot faster than downloading a
-// torrent, and if we're already downloading a hard torrent (i.e., not a lot of
-// seeders), it is really a shame to cancel the context last minute and try
-// again. This is relative, though, and should be monitored for better tuning.
 func (me *LocalIndexDhtDownloader) download(ctx context.Context) (err error, hasNewIndex bool) {
 	// Check if there's a new infohash to download (or download the last
 	// infohash if this is our first run)
@@ -98,14 +92,14 @@ func (me *LocalIndexDhtDownloader) download(ctx context.Context) (err error, has
 	if err != nil {
 		return err, false
 	}
-	defer r.Close()
+	ctxReader := missinggo.ContextedReader{R: r, Ctx: ctx}
 	fd, err := os.CreateTemp("", "replica-local-index")
 	if err != nil {
 		return log.Errorf("Making local index file: %v", err), false
 	}
 	defer fd.Close()
 	// TODO <23-03-22, soltzen> Should we have a context-aware reader here?
-	_, err = io.Copy(fd, r)
+	_, err = io.Copy(fd, ctxReader)
 	if err != nil {
 		return log.Errorf("Copying local index torrent reader: %v", err), false
 	}
