@@ -89,7 +89,7 @@ func TestQueueCreateQueue(t *testing.T) {
 	}
 
 	if _, err := queue.createQueue(); err != nil {
-		t.Errorf("failed to create queue: %w", err)
+		t.Errorf("failed to create queue: %v", err)
 	}
 }
 
@@ -100,7 +100,7 @@ func TestQueueSubscribe(t *testing.T) {
 	}
 
 	if err := queue.subscribeQueue("test-arn"); err != nil {
-		t.Errorf("failed to subscribe to queue: %w", err)
+		t.Errorf("failed to subscribe to queue: %v", err)
 	}
 }
 
@@ -111,7 +111,7 @@ func TestQueueInit(t *testing.T) {
 	}
 
 	if err := queue.Init(); err != nil {
-		t.Errorf("failed to initialize to queue: %w", err)
+		t.Errorf("failed to initialize to queue: %v", err)
 	}
 }
 
@@ -137,7 +137,7 @@ func TestQueueGetMessage(t *testing.T) {
 	}
 
 	if err := queue.GetMessage(handler); err != nil {
-		t.Errorf("failed to get message: %w", err)
+		t.Errorf("failed to get message: %v", err)
 	}
 	t.Logf("s3Events: %+v", s3Events)
 	actualPut := s3Events[0]
@@ -146,7 +146,7 @@ func TestQueueGetMessage(t *testing.T) {
 	assert.Equal(t, *actualPut.S3.Object.Key, "74435c9f-8ed9-4d25-84e8-517e94ae62be/test-image.jpeg")
 
 	if err := queue.GetMessage(handler); err != nil {
-		t.Errorf("failed to get message: %w", err)
+		t.Errorf("failed to get message: %v", err)
 	}
 	actualDelete := s3Events[1]
 	assert.Equal(t, actualDelete.EventName, "ObjectRemoved:Delete")
