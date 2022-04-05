@@ -23,8 +23,8 @@ import (
 	"github.com/anacrolix/torrent/storage"
 	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
 	borda "github.com/getlantern/borda/client"
+	"github.com/getlantern/dhtup"
 	"github.com/getlantern/errors"
-	"github.com/getlantern/eventual"
 	"github.com/getlantern/golog"
 	"github.com/getsentry/sentry-go"
 	"github.com/gorilla/mux"
@@ -136,14 +136,8 @@ type NewHttpHandlerInput struct {
 	// backup in case the remote replica-rust search index is unreachable.
 	//
 	// Use it by running NewHttpHandlerInput.SetLocalIndex().
-	LocalIndexPath eventual.Value
-	// Duration to wait until LocalIndexPath becomes available
-	LocalIndexPathFetchTimeout time.Duration
-	// Maximum wait delay for the primary search index to come back with a
-	// result.
-	// If it didn't come back by this time, use whatever value we got from the
-	// backup index, if any.
-	MaxWaitDelayForPrimarySearchIndex time.Duration
+	dhtContext              dhtup.Context
+	LocalIndexDhtDownloader *LocalIndexDhtDownloader
 	// Intercepts a Replica search request. If returned error is not-nil, the
 	// roundtripper will return that error. Used only for testing
 	DualSearchIndexRoundTripperInterceptRequestFunc func(string, *http.Request) error

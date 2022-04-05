@@ -10,6 +10,7 @@ import (
 const PrimarySearchRoundTripperKey = "primary"
 const LocalIndexRoundTripperKey = "local_index"
 const roundTripperHeaderKey = "RoundTripper"
+const maxWaitDelayForPrimarySearchIndex = time.Second * 5
 
 type DualSearchIndexRoundTripper struct {
 	input NewHttpHandlerInput
@@ -66,14 +67,16 @@ func runSearchRoundTripper(
 // roundtripper.
 //
 // This means that, even if the local index roundtripper fetched a value first,
-// RoundTrip() will wait a bit (namely, input.MaxWaitDelayForPrimarySearchIndex
-// length of time) before it returns the local index roundtripper's response.
+// RoundTrip() will wait a bit (namely, half the deadline length of the
+// context, or a constant short amount) before it returns the local index
+// roundtripper's response.
 func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	// If there's no local index index, just run it usually
-	if a.input.LocalIndexPath == nil {
+	if a.input.LocalIndexDhtDownloader == nil {
 		return a.input.HttpClient.Transport.RoundTrip(req)
 	}
 
+	// Run the primary and local index roundtrippers in parallel
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
 	primaryRespChan := make(chan *http.Response)
@@ -85,12 +88,31 @@ func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 		a.input.DualSearchIndexRoundTripperInterceptRequestFunc,
 	)
 	go runSearchRoundTripper(req,
-		&LocalIndexIndexRoundTripper{a.input},
+		&LocalIndexRoundTripper{a.input.LocalIndexDhtDownloader},
 		LocalIndexRoundTripperKey,
 		backupRespChan,
 		a.input.DualSearchIndexRoundTripperInterceptRequestFunc,
 	)
 
+	// Half the deadline length of the context: we'll wait this much on the
+	// primary search index before using the local index
+	var primarySearchIndexDeadline time.Duration
+	t, ok := ctx.Deadline()
+	if !ok {
+		primarySearchIndexDeadline = maxWaitDelayForPrimarySearchIndex
+	} else {
+		// Half the deadline length
+		a := t.Sub(time.Now()) / 2
+		if a == 0 {
+			primarySearchIndexDeadline = maxWaitDelayForPrimarySearchIndex
+		} else {
+			primarySearchIndexDeadline = a
+		}
+	}
+
+	// Wait for the primary search index to return a response,
+	// Or for a context timeout
+	// Or for the primary search index deadline to timeout
 	select {
 	case resp := <-primaryRespChan:
 		if resp != nil {
@@ -98,18 +120,23 @@ func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 		} else {
 			log.Debugf("Received nil response from primary search roundtripper. Checking local index roundtripper...")
 		}
-	case <-time.After(a.input.MaxWaitDelayForPrimarySearchIndex):
+	case <-time.After(primarySearchIndexDeadline):
 		log.Debugf("Primary search roundtripper timedout. checking local index roundtripper...")
 	case <-ctx.Done():
-		log.Debugf("Primary search roundtripper timedout. checking local index roundtripper...")
+		return nil, log.Errorf("Failed to make a search request with any roundtripper: %v", ctx.Err())
 	}
 
+	// If we reached here, the primary search index failed to return a response
+	// and we're trying our luck with the local index before the context times
+	// out
 	select {
 	case resp := <-backupRespChan:
 		if resp != nil {
 			return resp, nil
+		} else {
+			return nil, log.Errorf("Received nil response from local index search roundtripper. This is very weird.")
 		}
 	case <-ctx.Done():
+		return nil, log.Errorf("Failed to make a search request with any roundtripper: %v", ctx.Err())
 	}
-	return nil, log.Errorf("Failed to make a search request with any roundtripper: %v", ctx.Err())
 }
