@@ -92,6 +92,8 @@ func TestSearch(t *testing.T) {
 	t.Run("Delay backup search roundtripper indefinitely. Primary search roundtripper should be used", func(t *testing.T) {
 		input.SetLocalIndex(
 			localIndexDhtResource,
+			10*time.Minute, // doesn't matter
+			t.TempDir(),    // doesn't matter
 			func(roundTripperKey string, req *http.Request) error {
 				if roundTripperKey == LocalIndexRoundTripperKey {
 					log.Debugf("Delaying %s", roundTripperKey)
@@ -117,6 +119,8 @@ func TestSearch(t *testing.T) {
 	t.Run("Delay primary search roundtripper indefinitely so that backup search roundtripper is used", func(t *testing.T) {
 		input.SetLocalIndex(
 			localIndexDhtResource,
+			10*time.Minute, // doesn't matter
+			t.TempDir(),    // doesn't matter
 			func(roundTripperKey string, req *http.Request) error {
 				if roundTripperKey == PrimarySearchRoundTripperKey {
 					log.Debugf("Delaying %s", roundTripperKey)
@@ -142,6 +146,8 @@ func TestSearch(t *testing.T) {
 	t.Run("Return failure from primary search roundtripper so that backup search roundtripper is used", func(t *testing.T) {
 		input.SetLocalIndex(
 			localIndexDhtResource,
+			10*time.Minute, // doesn't matter
+			t.TempDir(),    // doesn't matter
 			func(roundTripperKey string, req *http.Request) error {
 				if roundTripperKey == PrimarySearchRoundTripperKey {
 					log.Debugf("Delaying %s", roundTripperKey)
