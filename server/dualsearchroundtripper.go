@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"net/http"
@@ -44,7 +45,8 @@ func runSearchRoundTripper(
 		close(ch)
 		return
 	}
-	if resp.StatusCode != http.StatusOK {
+	// Accept 2xx and 3xx responses only
+	if resp.StatusCode/100 >= 4 {
 		defer close(ch)
 		b, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
