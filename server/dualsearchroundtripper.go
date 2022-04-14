@@ -63,6 +63,19 @@ func runSearchRoundTripper(
 	ch <- resp
 }
 
+func copyRequest(req *http.Request) (*http.Request, *http.Request, error) {
+	req2 := req.Clone(req.Context())
+	if req.Body != nil {
+		b, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			return nil, nil, log.Errorf("while reading request body %v", err)
+		}
+		req.Body = ioutil.NopCloser(bytes.NewReader(b))
+		req2.Body = ioutil.NopCloser(bytes.NewReader(b))
+	}
+	return req, req2, nil
+}
+
 // RoundTrip() will run a search request through the primary roundtripper (a
 // remote replica-rust instance) and through a local index roundtripper (a local
 // sqlite search index), if that one exists, while prefering the primary
@@ -79,8 +92,10 @@ func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 	}
 
 	// Run the primary and local index roundtrippers in parallel
-	ctx, cancel := context.WithCancel(req.Context())
-	defer cancel()
+	req, req2, err := copyRequest(req)
+	if err != nil {
+		return nil, err
+	}
 	primaryRespChan := make(chan *http.Response)
 	backupRespChan := make(chan *http.Response)
 	go runSearchRoundTripper(req,
@@ -89,7 +104,7 @@ func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 		primaryRespChan,
 		a.input.DualSearchIndexRoundTripperInterceptRequestFunc,
 	)
-	go runSearchRoundTripper(req,
+	go runSearchRoundTripper(req2,
 		&LocalIndexRoundTripper{a.input.LocalIndexDhtDownloader},
 		LocalIndexRoundTripperKey,
 		backupRespChan,
@@ -98,6 +113,8 @@ func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 
 	// Half the deadline length of the context: we'll wait this much on the
 	// primary search index before using the local index
+	ctx, cancel := context.WithCancel(req.Context())
+	defer cancel()
 	var primarySearchIndexDeadline time.Duration
 	t, ok := ctx.Deadline()
 	if !ok {
