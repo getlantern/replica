@@ -151,12 +151,13 @@ func (me *LocalIndexDhtDownloader) download(ctx context.Context) (err error, has
 	log.Debugf("Fetched new infohash for Replica local index %s",
 		bep46PayloadInfohash.HexString())
 
-	// Fetch the torrent's io.ReadCloser and attempt to download it with
+	// Fetch the torrent's reader and attempt to download it with
 	// io.Copy
 	r, _, err := me.res.FetchTorrentFileReader(ctx, bep46PayloadInfohash)
 	if err != nil {
 		return err, false
 	}
+	defer r.Close()
 	log.Debugf(
 		"Fetched torrent io.reader for Replica local index %s. Attempting to download...",
 		bep46PayloadInfohash.HexString())

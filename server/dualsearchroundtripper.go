@@ -45,7 +45,7 @@ func runSearchRoundTripper(
 		close(ch)
 		return
 	}
-	// Accept 2xx and 3xx responses only
+	// Accept 1xx, 2xx and 3xx responses only
 	if resp.StatusCode/100 >= 4 {
 		defer close(ch)
 		b, err := ioutil.ReadAll(resp.Body)
