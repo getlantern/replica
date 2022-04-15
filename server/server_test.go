@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/anacrolix/missinggo"
 	"github.com/anacrolix/torrent/metainfo"
+	"github.com/getlantern/dhtup"
 	"github.com/getlantern/golog/testlog"
 	"github.com/getlantern/replica/projectpath"
 	"github.com/getlantern/replica/service"
@@ -38,20 +38,24 @@ type MockDhtResourceImpl struct {
 	path string
 }
 
-type fileReaderWithContext struct {
+type fileReaderCloserCtx struct {
 	r *os.File
 }
 
-func (r fileReaderWithContext) ReadContext(ctx context.Context, b []byte) (int, error) {
+func (r fileReaderCloserCtx) ReadContext(ctx context.Context, b []byte) (int, error) {
 	return r.r.Read(b)
 }
 
-func (me MockDhtResourceImpl) Open(ctx context.Context) (missinggo.ReadContexter, bool, error) {
+func (r fileReaderCloserCtx) Close() error {
+	return r.r.Close()
+}
+
+func (me MockDhtResourceImpl) Open(ctx context.Context) (dhtup.OpenedResource, bool, error) {
 	f, err := os.Open(filepath.Join(me.path))
 	if err != nil {
 		return nil, false, err
 	}
-	return fileReaderWithContext{f}, false, nil
+	return fileReaderCloserCtx{f}, false, nil
 }
 
 func (me MockDhtResourceImpl) FetchBep46Payload(context.Context) (metainfo.Hash, error) {
@@ -59,12 +63,12 @@ func (me MockDhtResourceImpl) FetchBep46Payload(context.Context) (metainfo.Hash,
 	return metainfo.Hash{0x41}, nil
 }
 
-func (me MockDhtResourceImpl) FetchTorrentFileReader(context.Context, metainfo.Hash) (missinggo.ReadContexter, bool, error) {
+func (me MockDhtResourceImpl) FetchTorrentFileReader(context.Context, metainfo.Hash) (dhtup.OpenedResource, bool, error) {
 	f, err := os.Open(filepath.Join(me.path))
 	if err != nil {
 		return nil, false, err
 	}
-	return fileReaderWithContext{f}, false, nil
+	return fileReaderCloserCtx{f}, false, nil
 }
 
 func TestSearch(t *testing.T) {
@@ -81,17 +85,13 @@ func TestSearch(t *testing.T) {
 		},
 		HttpClient: http.DefaultClient,
 	}
-	// cacheDir, err := os.UserCacheDir()
-	// if err != nil {
-	// 	cacheDir = os.TempDir()
-	// }
-	// cacheDir = filepath.Join(cacheDir, common.DefaultAppName, "dhtup", "data")
-	// os.MkdirAll(cacheDir, 0o700)
 	localIndexDhtResource := MockDhtResourceImpl{filepath.Join(projectpath.Root, "testdata", "backup-search-index.db")}
 
 	t.Run("Delay backup search roundtripper indefinitely. Primary search roundtripper should be used", func(t *testing.T) {
 		input.SetLocalIndex(
 			localIndexDhtResource,
+			10*time.Minute, // doesn't matter
+			t.TempDir(),    // doesn't matter
 			func(roundTripperKey string, req *http.Request) error {
 				if roundTripperKey == LocalIndexRoundTripperKey {
 					log.Debugf("Delaying %s", roundTripperKey)
@@ -117,6 +117,8 @@ func TestSearch(t *testing.T) {
 	t.Run("Delay primary search roundtripper indefinitely so that backup search roundtripper is used", func(t *testing.T) {
 		input.SetLocalIndex(
 			localIndexDhtResource,
+			10*time.Minute, // doesn't matter
+			t.TempDir(),    // doesn't matter
 			func(roundTripperKey string, req *http.Request) error {
 				if roundTripperKey == PrimarySearchRoundTripperKey {
 					log.Debugf("Delaying %s", roundTripperKey)
@@ -142,6 +144,8 @@ func TestSearch(t *testing.T) {
 	t.Run("Return failure from primary search roundtripper so that backup search roundtripper is used", func(t *testing.T) {
 		input.SetLocalIndex(
 			localIndexDhtResource,
+			10*time.Minute, // doesn't matter
+			t.TempDir(),    // doesn't matter
 			func(roundTripperKey string, req *http.Request) error {
 				if roundTripperKey == PrimarySearchRoundTripperKey {
 					log.Debugf("Delaying %s", roundTripperKey)

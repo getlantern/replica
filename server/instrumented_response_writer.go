@@ -35,8 +35,10 @@ func (rw *NoopInstrumentedResponseWriter) FailIf(err error) {
 // Leave durations as 0 for sane defaults
 func (me *NewHttpHandlerInput) SetLocalIndex(
 	res dhtup.Resource,
+	checkForNewUpdatesEvery time.Duration,
+	configDir string,
 	requestInterceptor func(string, *http.Request) error) {
-	me.LocalIndexDhtDownloader = RunLocalIndexDownloader(res, 60*time.Minute)
+	me.LocalIndexDhtDownloader = RunLocalIndexDownloader(res, checkForNewUpdatesEvery, configDir)
 	me.DualSearchIndexRoundTripperInterceptRequestFunc = requestInterceptor
 }
 
