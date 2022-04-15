@@ -12,7 +12,7 @@ require (
 	github.com/anacrolix/torrent v1.41.1-0.20220315024234-5a61d8f6ac93
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/getlantern/borda v0.0.0-20211118145443-aeeab8933313
-	github.com/getlantern/dhtup v0.0.0-20220405140526-61f98768fcbf
+	github.com/getlantern/dhtup v0.0.0-20220414120328-ca805e79cd5b
 	github.com/getlantern/errors v1.0.1
 	github.com/getlantern/eventual/v2 v2.0.2
 	github.com/getlantern/golog v0.0.0-20211223150227-d4d95a44d873
