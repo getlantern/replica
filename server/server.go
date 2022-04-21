@@ -928,6 +928,7 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 
 	torrentFile := t.Files()[selectOnly]
 	fileReader := torrentFile.NewReader()
+	defer fileReader.Close()
 	rw.Header().Set("Cache-Control", "public, max-age=604800, immutable")
 	confluence.ServeTorrentReader(rw, r, fileReader, torrentFile.Path())
 	return nil
