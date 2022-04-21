@@ -894,7 +894,8 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 	}
 	select {
 	case <-r.Context().Done():
-		return nil
+		// wrapHandlerError now adjusts log severity appropriately for context.Canceled.
+		return r.Context().Err()
 	case <-t.GotInfo():
 	}
 	filename := firstNonEmptyString(
