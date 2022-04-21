@@ -25,9 +25,3 @@ require (
 	github.com/leanovate/gopter v0.2.9
 	github.com/stretchr/testify v1.7.0
 )
-
-replace github.com/lucas-clemente/quic-go => github.com/getlantern/quic-go v0.0.0-20211103152344-c9ce5bfd4854
-
-replace github.com/refraction-networking/utls => github.com/getlantern/utls v0.0.0-20211116192935-1abdc4b1acab
-
-// replace github.com/getlantern/dhtup => ../dhtup
