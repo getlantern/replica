@@ -17,6 +17,9 @@ import (
 // - and, one to get all the announcing peers for that network.
 // The test asserts that the address we've announced is the one we fetch.
 func TestP2pNetworking(t *testing.T) {
+	if testing.Short() {
+		t.SkipNow()
+	}
 	// Init Dht server
 	cfg := dht.NewDefaultServerConfig()
 	cfg.NoSecurity = false
