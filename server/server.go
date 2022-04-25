@@ -870,6 +870,19 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 		Webseeds:    getWebseedUrls(gc, m.InfoHash.HexString()),
 		PeerAddrs:   gc.GetStaticPeerAddrs(),
 		Sources:     getMetainfoUrls(gc, m.InfoHash.HexString()),
+		DefaultWebseedEscapePath: func(url_ string, pathComps []string) string {
+			var ret []string
+			for _, comp := range pathComps {
+				// See here
+				// https://github.com/getlantern/lantern-internal/issues/5461#issuecomment-1105035475
+				if strings.Contains(url_, "gcore") {
+					ret = append(ret, url.PathEscape(comp))
+				} else {
+					ret = append(ret, url.QueryEscape(comp))
+				}
+			}
+			return path.Join(ret...)
+		},
 	}
 
 	// TODO: Remove this when infohash prefixing is used throughout.
@@ -932,6 +945,8 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 	defer fileReader.Close()
 	rw.Header().Set("Cache-Control", "public, max-age=604800, immutable")
 	confluence.ServeTorrentReader(rw, r, fileReader, torrentFile.Path())
+	// TODO <21-04-2022, soltzen> add a timeout to the context
+	// https://github.com/getlantern/lantern-internal/issues/5483
 	return nil
 }
 
