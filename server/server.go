@@ -905,6 +905,8 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 	if err != nil {
 		log.Errorf("error parsing so field: %v", err)
 	}
+	// TODO <21-04-2022, soltzen> add a timeout to the context
+	// https://github.com/getlantern/lantern-internal/issues/5483
 	select {
 	case <-r.Context().Done():
 		// wrapHandlerError now adjusts log severity appropriately for context.Canceled.
@@ -945,8 +947,6 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 	defer fileReader.Close()
 	rw.Header().Set("Cache-Control", "public, max-age=604800, immutable")
 	confluence.ServeTorrentReader(rw, r, fileReader, torrentFile.Path())
-	// TODO <21-04-2022, soltzen> add a timeout to the context
-	// https://github.com/getlantern/lantern-internal/issues/5483
 	return nil
 }
 
