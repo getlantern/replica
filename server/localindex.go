@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -76,7 +77,14 @@ func RunLocalIndexDownloader(
 		configDir:                     configDir,
 	}
 
-	// Use the last fully-downloaded local index as the initial value
+	// Walk through the config directory and use the last fully-downloaded
+	// local index as the initial value
+	r, err := regexp.Compile("replica-local-index.*sqlite$")
+	if err != nil {
+		// This is a programmer error: better panic than silently fail in the
+		// logs
+		panic(fmt.Sprintf("Couldn't compile regexp: %v", err))
+	}
 	filepath.Walk(l.configDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -84,8 +92,8 @@ func RunLocalIndexDownloader(
 		if info.IsDir() {
 			return nil
 		}
-		if strings.HasPrefix(info.Name(), LocalIndexFilenamePrefix) {
-			log.Debugf("Found local index file %v", path)
+		if r.MatchString(info.Name()) {
+			// log.Debugf("Found local index file %v", path)
 			l.FullyDownloadedLocalIndexPath.Set(path)
 		}
 		return nil
@@ -353,7 +361,9 @@ func fetchSearchResultsFromLocalIndex(
 	ctx context.Context,
 	localIndexPath, searchQuery string,
 	limit, offset int) ([]*SearchResult, error) {
-	dbpool, err := sqlitex.Open(fmt.Sprintf("file:%s?mode=rw", localIndexPath), 0, 1)
+	p := fmt.Sprintf("file:%s?mode=rw", localIndexPath)
+	log.Debugf("Opening local index %s", p)
+	dbpool, err := sqlitex.Open(p, 0, 1)
 	if err != nil {
 		return nil, log.Errorf(
 			"while opening connection to local index: %v", err)
