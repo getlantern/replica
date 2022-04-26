@@ -9,7 +9,7 @@ require (
 	github.com/anacrolix/log v0.13.1
 	github.com/anacrolix/missinggo/v2 v2.6.0
 	github.com/anacrolix/publicip v0.2.0
-	github.com/anacrolix/torrent v1.41.1-0.20220317221550-dd1ca6f51475
+	github.com/anacrolix/torrent v1.42.1-0.20220426005912-5bcd5d1b135a
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/getlantern/borda v0.0.0-20211118145443-aeeab8933313
 	github.com/getlantern/dhtup v0.0.0-20220414120328-ca805e79cd5b
@@ -104,4 +104,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
 
-replace github.com/anacrolix/torrent => github.com/afjoseph/torrent v1.31.1-0.20220425145429-1dc803fd79be
