@@ -844,6 +844,25 @@ func (me *HttpHandler) handleView(rw InstrumentedResponseWriter, r *http.Request
 	return me.handleViewWith(rw, r, "inline")
 }
 
+func gcoreWebseedPathEscaper(pathComps []string) string {
+	var ret []string
+	for _, comp := range pathComps {
+		ret = append(ret, url.PathEscape(comp))
+	}
+	return path.Join(ret...)
+}
+
+func addWebseedUrls(t *torrent.Torrent, urls []string) {
+	for _, url_ := range urls {
+		var opts []torrent.AddWebSeedsOpt
+		// https://github.com/getlantern/lantern-internal/issues/5461#issuecomment-1105035475
+		if strings.Contains(url_, "gcore") {
+			opts = append(opts, torrent.WebSeedPathEscaper(gcoreWebseedPathEscaper))
+		}
+		t.AddWebSeeds([]string{url_}, opts...)
+	}
+}
+
 func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Request, inlineType string) error {
 	rw.Set("inline_type", inlineType)
 
@@ -867,17 +886,17 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 		Trackers:    [][]string{gc.GetTrackers()},
 		InfoHash:    m.InfoHash,
 		DisplayName: m.DisplayName,
-		Webseeds:    getWebseedUrls(gc, m.InfoHash.HexString()),
 		PeerAddrs:   gc.GetStaticPeerAddrs(),
 		Sources:     getMetainfoUrls(gc, m.InfoHash.HexString()),
 	}
+	webseedUrls := getWebseedUrls(gc, m.InfoHash.HexString())
 
 	// TODO: Remove this when infohash prefixing is used throughout.
 	var uploadSpec service.Upload
 	unwrapUploadSpecErr := uploadSpec.FromMagnet(m)
 	if unwrapUploadSpecErr == nil {
 		spec.Sources = append(spec.Sources, getMetainfoUrls(gc, uploadSpec.PrefixString())...)
-		spec.Webseeds = append(spec.Webseeds, getWebseedUrls(gc, uploadSpec.PrefixString())...)
+		webseedUrls = append(webseedUrls, getWebseedUrls(gc, uploadSpec.PrefixString())...)
 	} else {
 		log.Debugf("unwrapping upload spec from magnet link: %v", unwrapUploadSpecErr)
 	}
@@ -885,6 +904,7 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 	if err := t.MergeSpec(spec); err != nil {
 		return errors.New("merging spec: %v", err)
 	}
+	addWebseedUrls(t, webseedUrls)
 
 	selectOnly, err := strconv.ParseUint(m.Params.Get("so"), 10, 0)
 	// Assume that it should be present, as it'll be added going forward where possible. When it's
@@ -892,6 +912,8 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 	if err != nil {
 		log.Errorf("error parsing so field: %v", err)
 	}
+	// TODO <21-04-2022, soltzen> add a timeout to the context
+	// https://github.com/getlantern/lantern-internal/issues/5483
 	select {
 	case <-r.Context().Done():
 		// wrapHandlerError now adjusts log severity appropriately for context.Canceled.

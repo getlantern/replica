@@ -16,7 +16,7 @@ import (
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
-	"github.com/anacrolix/missinggo"
+	"github.com/anacrolix/missinggo/v2"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/getlantern/dhtup"
 	"github.com/getlantern/eventual/v2"
