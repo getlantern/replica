@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
@@ -219,8 +220,23 @@ func (me *LocalIndexDhtDownloader) download(ctx context.Context) (err error, has
 	return nil, true
 }
 
-func encloseFts5QueryString(s string) string {
-	return `"` + strings.Replace(s, `"`, `""`, -1) + `"`
+// Taken from https://github.com/anacrolix/dht-indexer/blob/532d9a66ce09d1e054f01ab93a3e0d6e2f643273/datadb/sqlite/search.go#L84-L101.
+func escapeFts5QueryString(s string) string {
+	fs := strings.FieldsFunc(s, func(r rune) bool {
+		switch r {
+		// From info_fts' tokenize tokenchars argument
+		case '&', '-', '\'':
+			return false
+		}
+		// sqlite FTS5 4.3.1. Unicode61 Tokenizer: "By default all space and punctuation characters,
+		// as defined by Unicode 6.1, are considered separators, and all other characters as token
+		// characters."
+		return unicode.IsSpace(r) || unicode.IsPunct(r)
+	})
+	for i, f := range fs {
+		fs[i] = fmt.Sprintf(`"%s"`, strings.ReplaceAll(f, `"`, `""`))
+	}
+	return strings.Join(fs, " ")
 }
 
 type SearchResult struct {
@@ -377,7 +393,7 @@ func fetchSearchResultsFromLocalIndex(
 	stmt := conn.Prep(
 		"SELECT prefix, creation_date, info_hash, info_name, path, length, rank FROM upload_fts(?) LIMIT ? OFFSET ?",
 	)
-	stmt.BindText(1, encloseFts5QueryString(searchQuery))
+	stmt.BindText(1, escapeFts5QueryString(searchQuery))
 	stmt.BindInt64(2, int64(limit))
 	stmt.BindInt64(3, int64(offset))
 	results := []*SearchResult{}
