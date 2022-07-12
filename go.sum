@@ -26,8 +26,6 @@ github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMx
 github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/StackExchange/wmi v0.0.0-20210224194228-fe8f1750fd46/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/Workiva/go-datastructures v1.0.53/go.mod h1:1yZL+zfsztete+ePzZz/Zb1/t5BnDuE2Ya2MMGhzP6A=
-github.com/afjoseph/torrent v1.31.1-0.20220425145429-1dc803fd79be h1:cTVKj8nClYJcFYvavKe59Z0oCPlOUnQ/VhF95gFnj8E=
-github.com/afjoseph/torrent v1.31.1-0.20220425145429-1dc803fd79be/go.mod h1:QsFkVp////43Z+HqBfmwsxnsI9IXqGtRqNb2XoS0DgY=
 github.com/ajg/form v1.5.1/go.mod h1:uL1WgH+h2mgNtvBq0339dVnzXdBETtL2LeUXaIv25UY=
 github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
 github.com/ajwerner/btree v0.0.0-20211201061316-91c8b66ad617 h1:sxP5D87Mq99SZMHhYBmq1yY4AAVkfNY5Wn02B9crYs0=
