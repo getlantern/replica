@@ -17,16 +17,15 @@ func TestEscapeFts5String(t *testing.T) {
 		},
 		{
 			input:          `bunny"foofoo`,
-			expectedOutput: `"bunny""foofoo"`,
+			expectedOutput: `"bunny" "foofoo"`,
 		},
 		{
 			input:          `bunny"foo"foo`,
-			expectedOutput: `"bunny""foo""foo"`,
+			expectedOutput: `"bunny" "foo" "foo"`,
 		},
 	} {
 		require.Equal(t,
 			tc.expectedOutput,
-			encloseFts5QueryString(tc.input))
-
+			escapeFts5QueryString(tc.input))
 	}
 }
