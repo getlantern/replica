@@ -1032,7 +1032,9 @@ func (me *HttpHandler) handleObjectInfo(rw InstrumentedResponseWriter, r *http.R
 			return err
 		}
 
-		return fmt.Errorf("getting metadata: %w", err)
+		log.Errorf("getting metadata: %w", err)
+		rw.Header().Set("Cache-Control", "public, max-age=86400, immutable")
+		return encodeJsonResponse(rw, metadata)
 	}
 	defer resp.Body.Close()
 
