@@ -1038,6 +1038,7 @@ func (me *HttpHandler) handleObjectInfo(rw InstrumentedResponseWriter, r *http.R
 
 	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
 		// Not all torrents have metadata files
+		rw.Header().Set("Cache-Control", "public, max-age=86400, immutable")
 		return encodeJsonResponse(rw, metadata)
 	}
 
