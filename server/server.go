@@ -1032,7 +1032,7 @@ func (me *HttpHandler) handleObjectInfo(rw InstrumentedResponseWriter, r *http.R
 			return err
 		}
 
-		return errors.New("getting metadata: %v", err)
+		return fmt.Errorf("getting metadata: %w", err)
 	}
 	defer resp.Body.Close()
 
