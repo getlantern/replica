@@ -71,15 +71,15 @@ type ReplicaOptions interface {
 	GetCustomCA() string
 }
 
-func getMetainfoUrls(ro ReplicaOptions, prefix string) (ret []string) {
-	for _, s := range ro.GetWebseedBaseUrls() {
+func getMetainfoUrls(metainfoBaseURLs []string, prefix string) (ret []string) {
+	for _, s := range metainfoBaseURLs {
 		ret = append(ret, fmt.Sprintf("%s%s/torrent", s, prefix))
 	}
 	return
 }
 
-func getWebseedUrls(ro ReplicaOptions, prefix string) (ret []string) {
-	for _, s := range ro.GetWebseedBaseUrls() {
+func getWebseedUrls(webseedBaseURLs []string, prefix string) (ret []string) {
+	for _, s := range webseedBaseURLs {
 		ret = append(ret, fmt.Sprintf("%s%s/data/", s, prefix))
 	}
 	return
@@ -118,7 +118,8 @@ type NewHttpHandlerInput struct {
 	// Admin token is used if the uploader wants to delete their file later on
 	StoreMetainfoFileAndTokenLocally bool
 	OnRequestReceived                func(handler string, extraInfo string)
-	GlobalConfig                     func() ReplicaOptions
+	// Fetches the GlobalConfig. Beware that this **can** return a nil result.
+	GlobalConfig func() ReplicaOptions
 	// This sets the DHT node as 'read-only' as well as disable seeding in the
 	// torrent client
 	ReadOnlyNode bool
@@ -699,13 +700,14 @@ func (me *HttpHandler) handleMetadata(category string) func(InstrumentedResponse
 				mr.Header.Add(h, v)
 			}
 		}
-		gc := me.GlobalConfig()
 		key := fmt.Sprintf("%s/%s/%d", m.InfoHash.HexString(), category, fileIndex)
 		resp, err := doFirst(mr, me.HttpClient, func(r *http.Response) bool {
 			return r.StatusCode/100 == 2
 		}, func() (ret []string) {
-			for _, s := range gc.GetMetadataBaseUrls() {
-				ret = append(ret, s+key)
+			if gc := me.GlobalConfig(); gc != nil {
+				for _, s := range gc.GetMetadataBaseUrls() {
+					ret = append(ret, s+key)
+				}
 			}
 			return
 		}())
@@ -878,25 +880,38 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 	t, _, release := me.confluence.GetTorrent(m.InfoHash)
 	defer release()
 
-	gc := me.GlobalConfig()
-
-	log.Debugf("adding static peers: %q", gc.GetStaticPeerAddrs())
+	var trackers, sources, peerAddrs, webseedURLs, webseedBaseURLs, metainfoBaseURLs []string
+	if gc := me.GlobalConfig(); gc != nil {
+		trackers = gc.GetTrackers()
+		log.Debugf("Adding trackers: %v", trackers)
+		peerAddrs = gc.GetStaticPeerAddrs()
+		log.Debugf("Adding static peers addresses: %v", peerAddrs)
+		webseedBaseURLs = gc.GetWebseedBaseUrls()
+		webseedURLs = getWebseedUrls(webseedBaseURLs, m.InfoHash.HexString())
+		log.Debugf("Adding webseed urls: %v", webseedURLs)
+		metainfoBaseURLs = gc.GetMetadataBaseUrls()
+		sources = getMetainfoUrls(metainfoBaseURLs, m.InfoHash.HexString())
+		log.Debugf("Adding sources: %v", sources)
+	} else {
+		log.Debugf(
+			"Failed to fetch global config. Not adding trackers, sources, webseedURLs or peerAddrs for %q",
+			m.InfoHash.HexString())
+	}
 
 	spec := &torrent.TorrentSpec{
-		Trackers:    [][]string{gc.GetTrackers()},
+		Trackers:    [][]string{trackers},
 		InfoHash:    m.InfoHash,
 		DisplayName: m.DisplayName,
-		PeerAddrs:   gc.GetStaticPeerAddrs(),
-		Sources:     getMetainfoUrls(gc, m.InfoHash.HexString()),
+		PeerAddrs:   peerAddrs,
+		Sources:     sources,
 	}
-	webseedUrls := getWebseedUrls(gc, m.InfoHash.HexString())
 
 	// TODO: Remove this when infohash prefixing is used throughout.
 	var uploadSpec service.Upload
 	unwrapUploadSpecErr := uploadSpec.FromMagnet(m)
 	if unwrapUploadSpecErr == nil {
-		spec.Sources = append(spec.Sources, getMetainfoUrls(gc, uploadSpec.PrefixString())...)
-		webseedUrls = append(webseedUrls, getWebseedUrls(gc, uploadSpec.PrefixString())...)
+		spec.Sources = append(spec.Sources, getMetainfoUrls(metainfoBaseURLs, uploadSpec.PrefixString())...)
+		webseedURLs = append(webseedURLs, getWebseedUrls(webseedBaseURLs, uploadSpec.PrefixString())...)
 	} else {
 		log.Debugf("unwrapping upload spec from magnet link: %v", unwrapUploadSpecErr)
 	}
@@ -904,7 +919,7 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 	if err := t.MergeSpec(spec); err != nil {
 		return errors.New("merging spec: %v", err)
 	}
-	addWebseedUrls(t, webseedUrls)
+	addWebseedUrls(t, webseedURLs)
 
 	selectOnly, err := strconv.ParseUint(m.Params.Get("so"), 10, 0)
 	// Assume that it should be present, as it'll be added going forward where possible. When it's
@@ -957,11 +972,11 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 	return nil
 }
 
-func metainfoUrls(link metainfo.Magnet, config ReplicaOptions) (ret []string) {
-	ret = getMetainfoUrls(config, link.InfoHash.HexString())
+func metainfoUrls(link metainfo.Magnet, metainfoBaseURLs []string) (ret []string) {
+	ret = getMetainfoUrls(metainfoBaseURLs, link.InfoHash.HexString())
 	var upload service.Upload
 	if upload.FromMagnet(link) == nil {
-		ret = append(ret, getMetainfoUrls(config, upload.PrefixString())...)
+		ret = append(ret, getMetainfoUrls(metainfoBaseURLs, upload.PrefixString())...)
 	}
 	return
 }
@@ -973,6 +988,11 @@ func (me *HttpHandler) handleObjectInfo(rw InstrumentedResponseWriter, r *http.R
 	if err != nil {
 		return handlerError{http.StatusBadRequest, errors.New("parsing magnet link: %v", err)}
 	}
+	var metainfoURLs []string
+	if gc := me.GlobalConfig(); gc != nil {
+		metainfoURLs = metainfoUrls(m, gc.GetMetadataBaseUrls())
+	}
+
 	resp, err := doFirst(
 		(&http.Request{}).WithContext(r.Context()),
 		me.HttpClient,
@@ -986,7 +1006,7 @@ func (me *HttpHandler) handleObjectInfo(rw InstrumentedResponseWriter, r *http.R
 			default:
 				return false
 			}
-		}, metainfoUrls(m, me.GlobalConfig()))
+		}, metainfoURLs)
 	if err != nil {
 		return err
 	}
@@ -1057,5 +1077,7 @@ func encodeJsonErrorResponse(rw http.ResponseWriter, resp interface{}, statusCod
 }
 
 func (me *HttpHandler) addImplicitTrackers(t *torrent.Torrent) {
-	t.AddTrackers([][]string{me.GlobalConfig().GetTrackers()})
+	if gc := me.GlobalConfig(); gc != nil {
+		t.AddTrackers([][]string{gc.GetTrackers()})
+	}
 }
