@@ -459,7 +459,10 @@ func (me *HttpHandler) handleUpload(rw InstrumentedResponseWriter, r *http.Reque
 		// Maybe we can differentiate form handling based on the method.
 	}
 
+	title := r.URL.Query().Get("title")
+	description := r.URL.Query().Get("description")
 	fileName := r.URL.Query().Get("name")
+
 	var fileReader io.Reader
 	{
 		// There are streaming ways and helpers for temporary files for this if size becomes an issue.
@@ -507,7 +510,7 @@ func (me *HttpHandler) handleUpload(rw InstrumentedResponseWriter, r *http.Reque
 		}
 	}
 
-	output, err := me.ReplicaServiceClient.Upload(replicaUploadReader, fileName)
+	output, err := me.ReplicaServiceClient.Upload(replicaUploadReader, fileName, title, description)
 	// me.GaSession.EventWithLabel("replica", "upload", path.Ext(fileName))
 	if me.OnRequestReceived != nil {
 		me.OnRequestReceived("upload", path.Ext(fileName))

@@ -21,12 +21,25 @@ type ServiceClient struct {
 	HttpClient             *http.Client
 }
 
-func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOutput, err error) {
+func (cl ServiceClient) Upload(read io.Reader, fileName, title, description string) (output UploadOutput, err error) {
 	req, err := http.NewRequest(http.MethodPut, serviceUploadUrl(cl.ReplicaServiceEndpoint, fileName).String(), read)
 	if err != nil {
 		err = fmt.Errorf("creating put request: %w", err)
 		return
 	}
+
+	queryParams := req.URL.Query()
+
+	if title != "" {
+		queryParams.Add("title", title)
+	}
+
+	if description != "" {
+		queryParams.Add("description", description)
+	}
+
+	req.URL.RawQuery = queryParams.Encode()
+
 	req.Header.Set("Accept", "application/json, text/plain, text/html;q=0")
 	resp, err := cl.HttpClient.Do(req)
 	if err != nil {
@@ -88,14 +101,14 @@ func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOu
 }
 
 // UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (cl ServiceClient) UploadFile(fileName, uploadedAsName string) (_ UploadOutput, err error) {
+func (cl ServiceClient) UploadFile(fileName, uploadedAsName, title, description string) (_ UploadOutput, err error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		err = fmt.Errorf("opening file: %w", err)
 		return
 	}
 	defer f.Close()
-	return cl.Upload(f, uploadedAsName)
+	return cl.Upload(f, uploadedAsName, title, description)
 }
 
 func (cl ServiceClient) DeleteUpload(prefix Prefix, auth string, haveMetainfo bool) error {
