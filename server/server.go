@@ -459,8 +459,7 @@ func (me *HttpHandler) handleUpload(rw InstrumentedResponseWriter, r *http.Reque
 		// Maybe we can differentiate form handling based on the method.
 	}
 
-	title := r.URL.Query().Get("title")
-	description := r.URL.Query().Get("description")
+	uploadOptions := service.NewUploadOptions(r)
 	fileName := r.URL.Query().Get("name")
 
 	var fileReader io.Reader
@@ -510,7 +509,7 @@ func (me *HttpHandler) handleUpload(rw InstrumentedResponseWriter, r *http.Reque
 		}
 	}
 
-	output, err := me.ReplicaServiceClient.Upload(replicaUploadReader, fileName, title, description)
+	output, err := me.ReplicaServiceClient.Upload(replicaUploadReader, fileName, &uploadOptions)
 	// me.GaSession.EventWithLabel("replica", "upload", path.Ext(fileName))
 	if me.OnRequestReceived != nil {
 		me.OnRequestReceived("upload", path.Ext(fileName))

@@ -15,30 +15,40 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 )
 
+type UploadOptions struct {
+	url.Values
+}
+
+// NewUploadOptions wraps url.Values and returns a new UploadOptions initialized with values from the http.Request.
+func NewUploadOptions(r *http.Request) UploadOptions {
+	uo := UploadOptions{url.Values{}}
+	uo.AddFromRequest(r, "title")
+	uo.AddFromRequest(r, "description")
+
+	return uo
+}
+
+func (uo *UploadOptions) AddFromRequest(r *http.Request, name string) {
+	val := r.URL.Query().Get(name)
+	if val != "" {
+		uo.Add(name, val)
+	}
+}
+
 type ServiceClient struct {
 	// This should be a URL to handle uploads. The specifics are in replica-rust.
 	ReplicaServiceEndpoint func() *url.URL
 	HttpClient             *http.Client
 }
 
-func (cl ServiceClient) Upload(read io.Reader, fileName, title, description string) (output UploadOutput, err error) {
+func (cl ServiceClient) Upload(read io.Reader, fileName string, uploadOptions *UploadOptions) (output UploadOutput, err error) {
 	req, err := http.NewRequest(http.MethodPut, serviceUploadUrl(cl.ReplicaServiceEndpoint, fileName).String(), read)
 	if err != nil {
 		err = fmt.Errorf("creating put request: %w", err)
 		return
 	}
 
-	queryParams := req.URL.Query()
-
-	if title != "" {
-		queryParams.Add("title", title)
-	}
-
-	if description != "" {
-		queryParams.Add("description", description)
-	}
-
-	req.URL.RawQuery = queryParams.Encode()
+	req.URL.RawQuery = uploadOptions.Encode()
 
 	req.Header.Set("Accept", "application/json, text/plain, text/html;q=0")
 	resp, err := cl.HttpClient.Do(req)
@@ -101,14 +111,14 @@ func (cl ServiceClient) Upload(read io.Reader, fileName, title, description stri
 }
 
 // UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (cl ServiceClient) UploadFile(fileName, uploadedAsName, title, description string) (_ UploadOutput, err error) {
+func (cl ServiceClient) UploadFile(fileName, uploadedAsName string, uploadOptions *UploadOptions) (_ UploadOutput, err error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		err = fmt.Errorf("opening file: %w", err)
 		return
 	}
 	defer f.Close()
-	return cl.Upload(f, uploadedAsName, title, description)
+	return cl.Upload(f, uploadedAsName, uploadOptions)
 }
 
 func (cl ServiceClient) DeleteUpload(prefix Prefix, auth string, haveMetainfo bool) error {
