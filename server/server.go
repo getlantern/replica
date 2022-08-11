@@ -997,9 +997,62 @@ func (me *HttpHandler) handleObjectInfo(rw InstrumentedResponseWriter, r *http.R
 	if err != nil {
 		return err
 	}
-	date := time.Unix(mi.CreationDate, 0).Format(time.RFC3339Nano)
+
+	metadata := make(map[string]interface{})
+	metadata["creationDate"] = time.Unix(mi.CreationDate, 0).Format(time.RFC3339Nano)
+
+	// Get metadata for torrent
+	mr := (&http.Request{
+		Method: http.MethodGet,
+		Header: make(http.Header),
+	}).WithContext(r.Context())
+	for _, h := range []string{
+		"Accept",
+		"Accept-Encoding",
+		"Accept-Language",
+		"Range",
+	} {
+		for _, v := range r.Header[h] {
+			mr.Header.Add(h, v)
+		}
+	}
+	gc := me.GlobalConfig()
+
+	key := fmt.Sprintf("%s/metadata", m.InfoHash.HexString())
+
+	resp, err = doFirst(mr, me.HttpClient, func(r *http.Response) bool {
+		return r.StatusCode/100 == 2
+	}, func() (ret []string) {
+		for _, s := range gc.GetMetadataBaseUrls() {
+			ret = append(ret, s+key)
+		}
+		return
+	}())
+
+	if err != nil {
+		if stdErrors.Is(err, r.Context().Err()) {
+			return err
+		}
+
+		log.Errorf("getting metadata: %w", err)
+		rw.Header().Set("Cache-Control", "public, max-age=86400, immutable")
+		return encodeJsonResponse(rw, metadata)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
+		// Not all torrents have metadata files
+		rw.Header().Set("Cache-Control", "public, max-age=86400, immutable")
+		return encodeJsonResponse(rw, metadata)
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&metadata)
+	if err != nil {
+		return errors.New("doing json decode for metadata: %v", err)
+	}
+
 	rw.Header().Set("Cache-Control", "public, max-age=604800, immutable")
-	return encodeJsonResponse(rw, map[string]interface{}{"creationDate": date})
+	return encodeJsonResponse(rw, metadata)
 }
 
 // What a bad language.
