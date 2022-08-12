@@ -880,7 +880,14 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 	t, _, release := me.confluence.GetTorrent(m.InfoHash)
 	defer release()
 
-	var trackers, sources, peerAddrs, webseedURLs, webseedBaseURLs, metainfoBaseURLs []string
+	// XXX <12-08-2022, soltzen> Don't declare them as nil (i.e., `var aaa []string`)
+	// since they're expected to be slices, albeit empty, in the torrent client
+	trackers := []string{}
+	sources := []string{}
+	peerAddrs := []string{}
+	webseedURLs := []string{}
+	webseedBaseURLs := []string{}
+	metainfoBaseURLs := []string{}
 	if gc := me.GlobalConfig(); gc != nil {
 		trackers = gc.GetTrackers()
 		log.Debugf("Adding trackers: %v", trackers)
