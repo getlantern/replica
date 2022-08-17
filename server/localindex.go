@@ -64,9 +64,9 @@ type LocalIndexDhtDownloader struct {
 }
 
 // RunLocalIndexDownloader does three things:
-// - Scans configDir for local index sqlite DBs that were already downloaded
-//   and assign it to FullyDownloadedLocalIndexPath
-// - Downloads the latest local index from the DHT
+//   - Scans configDir for local index sqlite DBs that were already downloaded
+//     and assign it to FullyDownloadedLocalIndexPath
+//   - Downloads the latest local index from the DHT
 func RunLocalIndexDownloader(
 	res dhtup.Resource,
 	checkForNewUpdatesEvery time.Duration,
@@ -217,6 +217,7 @@ func (me *LocalIndexDhtDownloader) download(ctx context.Context) (err error, has
 		"Successfully downloaded Replica local index %s. Setting path to %v",
 		bep46PayloadInfohash.HexString(), newPath)
 	me.FullyDownloadedLocalIndexPath.Set(newPath)
+	me.lastSuccessfulInfohash = bep46PayloadInfohash
 	return nil, true
 }
 
