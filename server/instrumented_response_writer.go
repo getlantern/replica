@@ -37,14 +37,15 @@ func (me *NewHttpHandlerInput) SetLocalIndex(
 	res dhtup.Resource,
 	checkForNewUpdatesEvery time.Duration,
 	configDir string,
-	requestInterceptor func(string, *http.Request) error) {
+	requestInterceptor func(string, *http.Request) error,
+) {
 	me.LocalIndexDhtDownloader = RunLocalIndexDownloader(res, checkForNewUpdatesEvery, configDir)
 	me.DualSearchIndexRoundTripperInterceptRequestFunc = requestInterceptor
 }
 
 func (me *NewHttpHandlerInput) SetDefaults() {
 	// Should GlobalConfig be set to the default value?
-	
+
 	if me.HttpClient == nil {
 		me.HttpClient = &http.Client{
 			Transport: http.DefaultTransport,
