@@ -36,6 +36,7 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	metascrubber "github.com/getlantern/meta-scrubber"
 	"github.com/getlantern/ops"
+
 	"github.com/getlantern/replica/service"
 )
 
@@ -56,19 +57,6 @@ type HttpHandler struct {
 	NewHttpHandlerInput
 	uploadStorage  storage.ClientImplCloser
 	defaultStorage storage.ClientImplCloser
-}
-
-type ReplicaOptions interface {
-	// Use infohash and old-style prefixing simultaneously for now. Later, the old-style can be removed.
-	GetWebseedBaseUrls() []string
-	GetTrackers() []string
-	GetStaticPeerAddrs() []string
-	// Merged with the webseed URLs when the metadata and data buckets are merged.
-	GetMetadataBaseUrls() []string
-	// The replica-rust endpoint to use. There's only one because object uploads and ownership are
-	// fixed to a specific bucket, and replica-rust endpoints are 1:1 with a bucket.
-	GetReplicaRustEndpoint() string
-	GetCustomCA() string
 }
 
 func getMetainfoUrls(ro ReplicaOptions, prefix string) (ret []string) {
@@ -118,7 +106,10 @@ type NewHttpHandlerInput struct {
 	// Admin token is used if the uploader wants to delete their file later on
 	StoreMetainfoFileAndTokenLocally bool
 	OnRequestReceived                func(handler string, extraInfo string)
-	GlobalConfig                     func() ReplicaOptions
+	// Indirection for fetching the latest replica options from the global config. Must not return nil. Probably
+	// shouldn't be nil itself either (at least if any code that interacts with Replica S3 and centralized BitTorrent
+	// infrastructure is to be used).
+	GlobalConfig func() ReplicaOptions
 	// This sets the DHT node as 'read-only' as well as disable seeding in the
 	// torrent client
 	ReadOnlyNode bool

@@ -43,6 +43,8 @@ func (me *NewHttpHandlerInput) SetLocalIndex(
 }
 
 func (me *NewHttpHandlerInput) SetDefaults() {
+	// Should GlobalConfig be set to the default value?
+	
 	if me.HttpClient == nil {
 		me.HttpClient = &http.Client{
 			Transport: http.DefaultTransport,
@@ -63,5 +65,4 @@ func (me *NewHttpHandlerInput) SetDefaults() {
 	) InstrumentedResponseWriter {
 		return &NoopInstrumentedResponseWriter{w}
 	}
-
 }
