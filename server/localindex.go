@@ -87,7 +87,7 @@ func RunLocalIndexDownloader(
 	}
 	dir.deleteUnusedIndexFiles(latestIndex)
 	if latestIndex.Ok {
-		l.FullyDownloadedLocalIndexPath.Set(latestIndex.Value)
+		l.FullyDownloadedLocalIndexPath.Set(filepath.Join(l.configDir, latestIndex.Value))
 	}
 
 	l.runDownloadRoutine(checkForNewUpdatesEvery)
@@ -179,7 +179,7 @@ func (me *LocalIndexDhtDownloader) download(ctx context.Context) (err error, has
 	// initial value, if it exists
 	n := time.Now()
 	newPath := filepath.Join(me.configDir,
-		fmt.Sprintf("/%s-%s.sqlite",
+		fmt.Sprintf("%s-%s.sqlite",
 			localIndexFilenamePrefix,
 			n.Format("20060102-150405")))
 	err = moveFile(fd.Name(), newPath)
@@ -360,7 +360,8 @@ func (a *LocalIndexRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 func fetchSearchResultsFromLocalIndex(
 	ctx context.Context,
 	localIndexPath, searchQuery string,
-	limit, offset int) ([]*SearchResult, error) {
+	limit, offset int,
+) ([]*SearchResult, error) {
 	p := fmt.Sprintf("file:%s?mode=rw", localIndexPath)
 	log.Debugf("Opening local index %s", p)
 	dbpool, err := sqlitex.Open(p, 0, 1)
