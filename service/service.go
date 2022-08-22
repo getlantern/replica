@@ -16,23 +16,33 @@ import (
 )
 
 type UploadOptions struct {
-	url.Values
+	Title       string
+	Description string
 }
 
-// NewUploadOptions wraps url.Values and returns a new UploadOptions initialized with values from the http.Request.
+// NewUploadOptions returns a new UploadOptions initialized with values from the http.Request.
 func NewUploadOptions(r *http.Request) UploadOptions {
-	uo := UploadOptions{url.Values{}}
-	uo.AddFromRequest(r, "title")
-	uo.AddFromRequest(r, "description")
+	uo := UploadOptions{}
+
+	q := r.URL.Query()
+	uo.Title = q.Get("title")
+	uo.Description = q.Get("description")
 
 	return uo
 }
 
-func (uo *UploadOptions) AddFromRequest(r *http.Request, name string) {
-	val := r.URL.Query().Get(name)
-	if val != "" {
-		uo.Add(name, val)
+func (uo *UploadOptions) Encode() string {
+	v := url.Values{}
+
+	if uo.Title != "" {
+		v.Add("title", uo.Title)
 	}
+
+	if uo.Description != "" {
+		v.Add("description", uo.Description)
+	}
+
+	return v.Encode()
 }
 
 type ServiceClient struct {
@@ -41,7 +51,7 @@ type ServiceClient struct {
 	HttpClient             *http.Client
 }
 
-func (cl ServiceClient) Upload(read io.Reader, fileName string, uploadOptions *UploadOptions) (output UploadOutput, err error) {
+func (cl ServiceClient) Upload(read io.Reader, fileName string, uploadOptions UploadOptions) (output UploadOutput, err error) {
 	req, err := http.NewRequest(http.MethodPut, serviceUploadUrl(cl.ReplicaServiceEndpoint, fileName).String(), read)
 	if err != nil {
 		err = fmt.Errorf("creating put request: %w", err)
@@ -111,7 +121,7 @@ func (cl ServiceClient) Upload(read io.Reader, fileName string, uploadOptions *U
 }
 
 // UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (cl ServiceClient) UploadFile(fileName, uploadedAsName string, uploadOptions *UploadOptions) (_ UploadOutput, err error) {
+func (cl ServiceClient) UploadFile(fileName, uploadedAsName string, uploadOptions UploadOptions) (_ UploadOutput, err error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		err = fmt.Errorf("opening file: %w", err)
