@@ -15,18 +15,51 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 )
 
+type UploadOptions struct {
+	Title       string
+	Description string
+}
+
+// NewUploadOptions returns a new UploadOptions initialized with values from the http.Request.
+func NewUploadOptions(r *http.Request) UploadOptions {
+	uo := UploadOptions{}
+
+	q := r.URL.Query()
+	uo.Title = q.Get("title")
+	uo.Description = q.Get("description")
+
+	return uo
+}
+
+func (uo *UploadOptions) Encode() string {
+	v := url.Values{}
+
+	if uo.Title != "" {
+		v.Add("title", uo.Title)
+	}
+
+	if uo.Description != "" {
+		v.Add("description", uo.Description)
+	}
+
+	return v.Encode()
+}
+
 type ServiceClient struct {
 	// This should be a URL to handle uploads. The specifics are in replica-rust.
 	ReplicaServiceEndpoint func() *url.URL
 	HttpClient             *http.Client
 }
 
-func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOutput, err error) {
+func (cl ServiceClient) Upload(read io.Reader, fileName string, uploadOptions UploadOptions) (output UploadOutput, err error) {
 	req, err := http.NewRequest(http.MethodPut, serviceUploadUrl(cl.ReplicaServiceEndpoint, fileName).String(), read)
 	if err != nil {
 		err = fmt.Errorf("creating put request: %w", err)
 		return
 	}
+
+	req.URL.RawQuery = uploadOptions.Encode()
+
 	req.Header.Set("Accept", "application/json, text/plain, text/html;q=0")
 	resp, err := cl.HttpClient.Do(req)
 	if err != nil {
@@ -88,14 +121,14 @@ func (cl ServiceClient) Upload(read io.Reader, fileName string) (output UploadOu
 }
 
 // UploadFile uploads the file for the given name, returning the Replica magnet link for the upload.
-func (cl ServiceClient) UploadFile(fileName, uploadedAsName string) (_ UploadOutput, err error) {
+func (cl ServiceClient) UploadFile(fileName, uploadedAsName string, uploadOptions UploadOptions) (_ UploadOutput, err error) {
 	f, err := os.Open(fileName)
 	if err != nil {
 		err = fmt.Errorf("opening file: %w", err)
 		return
 	}
 	defer f.Close()
-	return cl.Upload(f, uploadedAsName)
+	return cl.Upload(f, uploadedAsName, uploadOptions)
 }
 
 func (cl ServiceClient) DeleteUpload(prefix Prefix, auth string, haveMetainfo bool) error {
