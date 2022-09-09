@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
 )
 
@@ -85,23 +85,13 @@ func (cl ServiceClient) Upload(read io.Reader, fileName string, uploadOptions Up
 	}
 	output.Link = &serviceOutput.Link
 	output.AuthToken = &serviceOutput.AdminToken
-	var metainfoBytesBuffer bytes.Buffer
-	for _, r := range serviceOutput.Metainfo {
-		if r < 0 || r > math.MaxUint8 {
-			err = fmt.Errorf("response metainfo rune has unexpected codepoint")
-			return
-		}
-		err = metainfoBytesBuffer.WriteByte(byte(r))
-		if err != nil {
-			panic(err)
-		}
-	}
-	mi, err := metainfo.Load(&metainfoBytesBuffer)
+	var mi metainfo.MetaInfo
+	err = bencode.Unmarshal(serviceOutput.Metainfo.Bytes, &mi)
 	if err != nil {
 		err = fmt.Errorf("parsing metainfo from response: %w", err)
 		return
 	}
-	output.MetaInfo = mi
+	output.MetaInfo = &mi
 	output.Info, err = mi.UnmarshalInfo()
 	if err != nil {
 		err = fmt.Errorf("unmarshalling info from response metainfo bytes: %w", err)
@@ -164,10 +154,45 @@ var GlobalChinaDefaultServiceUrl = &url.URL{
 // Interface to the replica-rust/"Replica service".
 
 type ServiceUploadOutput struct {
-	Link       string `json:"link"`
-	Metainfo   string `json:"metainfo"`
-	AdminToken string `json:"admin_token"`
+	Link       string           `json:"link"`
+	Metainfo   JsonBinaryString `json:"metainfo"`
+	AdminToken string           `json:"admin_token"`
 }
+
+// JsonBinaryString tunnels binary data through a UTF-8 JSON string.
+type JsonBinaryString struct {
+	// This is embedded to break existing interactions with a string type.
+	Bytes []byte
+}
+
+func (me JsonBinaryString) MarshalJSON() ([]byte, error) {
+	var s []rune
+	for _, b := range me.Bytes {
+		s = append(s, rune(b))
+	}
+	return json.Marshal(string(s))
+}
+
+func (me *JsonBinaryString) UnmarshalJSON(i []byte) error {
+	var s string
+	err := json.Unmarshal(i, &s)
+	if err != nil {
+		return err
+	}
+	me.Bytes = me.Bytes[:0]
+	for _, r := range s {
+		if r < 0 || r > math.MaxUint8 {
+			return fmt.Errorf("rune out of bounds for byte: %q", r)
+		}
+		me.Bytes = append(me.Bytes, byte(r))
+	}
+	return nil
+}
+
+var (
+	_ json.Unmarshaler = (*JsonBinaryString)(nil)
+	_ json.Marshaler   = JsonBinaryString{}
+)
 
 // Completes the upload endpoint URL with the file-name, per the replica-rust upload endpoint API.
 func serviceUploadUrl(base func() *url.URL, fileName string) *url.URL {
