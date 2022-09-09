@@ -140,7 +140,7 @@ func (a *DualSearchIndexRoundTripper) RoundTrip(req *http.Request) (*http.Respon
 			log.Debugf("Received nil response from primary search roundtripper. Checking local index roundtripper...")
 		}
 	case <-time.After(primarySearchIndexDeadline):
-		log.Debugf("Primary search roundtripper timedout. checking local index roundtripper...")
+		log.Debugf("Primary search roundtripper timed out. Checking local index roundtripper...")
 	case <-ctx.Done():
 		return nil, log.Errorf("Failed to make a search request with any roundtripper: %v", ctx.Err())
 	}

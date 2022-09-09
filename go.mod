@@ -6,11 +6,13 @@ require (
 	crawshaw.io/sqlite v0.3.3-0.20210127221821-98b1f83c5508
 	github.com/anacrolix/confluence v1.11.1-0.20220330234942-3c7a0c445dad
 	github.com/anacrolix/dht/v2 v2.17.0
+	github.com/anacrolix/generics v0.0.0-20220618083756-f99e35403a60
 	github.com/anacrolix/log v0.13.1
-	github.com/anacrolix/missinggo/v2 v2.6.0
+	github.com/anacrolix/missinggo/v2 v2.7.0
 	github.com/anacrolix/publicip v0.2.0
-	github.com/anacrolix/torrent v1.42.1-0.20220426005912-5bcd5d1b135a
+	github.com/anacrolix/torrent v1.46.0
 	github.com/aws/aws-sdk-go v1.28.9
+	github.com/frankban/quicktest v1.14.3
 	github.com/getlantern/borda v0.0.0-20211118145443-aeeab8933313
 	github.com/getlantern/dhtup v0.0.0-20220414120328-ca805e79cd5b
 	github.com/getlantern/errors v1.0.1
@@ -23,15 +25,14 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/kennygrant/sanitize v1.2.4
 	github.com/leanovate/gopter v0.2.9
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 )
 
 require (
-	github.com/RoaringBitmap/roaring v0.9.4 // indirect
-	github.com/ajwerner/btree v0.0.0-20211201061316-91c8b66ad617 // indirect
+	github.com/RoaringBitmap/roaring v1.0.1-0.20220510143707-3f418c4f42a4 // indirect
+	github.com/ajwerner/btree v0.0.0-20211221152037-f427b3e689c0 // indirect
 	github.com/anacrolix/chansync v0.3.0 // indirect
 	github.com/anacrolix/envpprof v1.2.1 // indirect
-	github.com/anacrolix/generics v0.0.0-20220217222028-44932cf46edd // indirect
 	github.com/anacrolix/go-libutp v1.2.0 // indirect
 	github.com/anacrolix/missinggo v1.3.0 // indirect
 	github.com/anacrolix/missinggo/perf v1.0.0 // indirect
@@ -42,6 +43,7 @@ require (
 	github.com/anacrolix/sync v0.4.0 // indirect
 	github.com/anacrolix/upnp v0.1.3-0.20220123035249-922794e51c96 // indirect
 	github.com/anacrolix/utp v0.1.0 // indirect
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/benbjohnson/immutable v0.3.0 // indirect
 	github.com/bits-and-blooms/bitset v1.2.1 // indirect
 	github.com/bradfitz/iter v0.0.0-20191230175014-e8f45d346db8 // indirect
@@ -51,7 +53,7 @@ require (
 	github.com/dsoprea/go-png-image-structure v0.0.0-20200615034826-4cfc78940228 // indirect
 	github.com/dsoprea/go-utility v0.0.0-20200512094054-1abbbc781176 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/edsrzf/mmap-go v1.0.0 // indirect
+	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/getlantern/context v0.0.0-20190109183933-c447772a6520 // indirect
 	github.com/getlantern/hex v0.0.0-20190417191902-c6586a6fe0b7 // indirect
 	github.com/getlantern/hidden v0.0.0-20201229170000-e66e7f878730 // indirect
@@ -61,9 +63,13 @@ require (
 	github.com/golang/geo v0.0.0-20200319012246-673a6f80352d // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
+	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
+	github.com/kr/pretty v0.3.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
+	github.com/lispad/go-generics-tools v1.0.0 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
 	github.com/pion/datachannel v1.5.2 // indirect
@@ -85,14 +91,16 @@ require (
 	github.com/pion/webrtc/v3 v3.1.24-0.20220208053747-94262c1b2b38 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/rs/dnscache v0.0.0-20210201191234-295bba877686 // indirect
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
-	github.com/tidwall/btree v0.7.2-0.20211211132910-4215444137fc // indirect
+	github.com/tidwall/btree v1.3.1 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838 // indirect
+	golang.org/x/exp v0.0.0-20220428152302-39d4317da171 // indirect
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
