@@ -165,8 +165,10 @@ func (me *LocalIndexDhtDownloader) download(ctx context.Context) (err error, has
 	if err != nil {
 		return log.Errorf("making local index file: %v", err), false
 	}
-	defer fd.Close()
 	_, err = io.Copy(fd, ctxReader)
+	// We need to close the temp file before we try to move it, otherwise the below move
+	// will fail on Windows with "Failed removing original file".
+	fd.Close()
 	if err != nil {
 		os.Remove(fd.Name())
 		return log.Errorf("downloading local index torrent reader: %v", err), false
