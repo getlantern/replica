@@ -290,6 +290,7 @@ func NewHTTPHandler(
 	})
 	handler.router.HandleFunc("/search", handler.wrapHandlerError("replica_search", handler.handleSearch))
 	handler.router.HandleFunc("/search/serp_web", handler.wrapHandlerError("replica_search", handler.handleSearch))
+	handler.router.HandleFunc("/search/news", handler.wrapHandlerError("replica_search", handler.handleSearch))
 	handler.router.HandleFunc("/thumbnail", handler.wrapHandlerError("replica_thumbnail", handler.handleMetadata("thumbnail")))
 	handler.router.HandleFunc("/duration", handler.wrapHandlerError("replica_duration", handler.handleMetadata("duration")))
 	handler.router.HandleFunc("/upload", handler.wrapHandlerError("replica_upload", handler.handleUpload))
