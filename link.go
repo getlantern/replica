@@ -6,6 +6,7 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+
 	"github.com/getlantern/replica/service"
 )
 
