@@ -1,0 +1,19 @@
+This directory contains code to generate a SQLite DB from Replica S3 bucket listings. This can be used for high-level queries like in https://github.com/getlantern/lantern-internal/issues/5675.
+
+To get started run
+
+	make init-schema
+	AWS_ENDPOINT_URL=https://1c693b3f1031ed33f68653b1e67dfbef.r2.cloudflarestorage.com make import-bucket BUCKET=replica PROFILE=replica-r2
+
+where BUCKET suits your system, and PROFILE is a profile to use from your AWS config. On my system I had a wrapper around aws to allow custom endpoints from the environment, you might need something similar. Run this for all the buckets you want to import. You can clear the JSON files and rerun to refresh buckets.
+
+Examples:
+
+-- size and count of all files relating to user uploads
+
+sqlite> select sum(size)/1e9 as size_gb, count(*) as num_objects from info_hash where info_hash in (select info_hash from info_hash join user_upload using (key));
++---------------+-------------+
+|    size_gb    | num_objects |
++---------------+-------------+
+| 335.021089321 | 204825      |
++---------------+-------------+
