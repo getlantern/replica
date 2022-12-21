@@ -7,6 +7,7 @@ import (
 	"github.com/getlantern/flashlight/config"
 	"github.com/getlantern/flashlight/geolookup"
 	"github.com/getlantern/golog"
+
 	replicaServer "github.com/getlantern/replica/server"
 	replicaService "github.com/getlantern/replica/service"
 )
