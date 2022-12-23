@@ -663,6 +663,14 @@ func (me *HttpHandler) handleDelete(rw InstrumentedResponseWriter, r *http.Reque
 	return loadMetainfoErr
 }
 
+func copySpecificHeaders(dst, src http.Header, keys []string) {
+	for _, k := range keys {
+		for _, v := range src.Values(k) {
+			dst.Add(k, v)
+		}
+	}
+}
+
 func (me *HttpHandler) handleMetadata(category string) func(InstrumentedResponseWriter, *http.Request) error {
 	return func(rw InstrumentedResponseWriter, r *http.Request) error {
 		query := r.URL.Query()
@@ -709,30 +717,26 @@ func (me *HttpHandler) handleMetadata(category string) func(InstrumentedResponse
 			return errors.New("doing http metadata request: %v", err)
 		}
 		defer resp.Body.Close()
-		for h, vv := range resp.Header {
-			for _, v := range vv {
-				rw.Header().Add(h, v)
-			}
-		}
-		// AWS opines on us here, no thanks.
-		rw.Header().Del("Cache-Control")
-		rw.Header().Del("Pragma")
-		rw.Header().Del("Expires")
 		switch resp.StatusCode {
 		case http.StatusOK, http.StatusPartialContent:
+			copySpecificHeaders(rw.Header(), resp.Header, []string{
+				"Content-Range", "Content-Length",
+			})
 			// Clobbering the origin's Cache-Control header.
 			rw.Header().Set("Cache-Control", "public, max-age=604800, immutable")
+			rw.WriteHeader(resp.StatusCode)
+			_, err = io.Copy(rw, resp.Body)
+			if err != nil {
+				err = errors.New("copying metadata response: %v", err)
+			}
+			return err
 		case http.StatusForbidden, http.StatusNotFound:
 			// The behaviour I want here is to not retry for some small period of time. Chrome seems to ignore
 			// this?
 			rw.Header().Set("Cache-Control", "public, max-age=600")
 		}
 		rw.WriteHeader(resp.StatusCode)
-		_, err = io.Copy(rw, resp.Body)
-		if err != nil {
-			err = errors.New("copying metadata response: %v", err)
-		}
-		return err
+		return resp.Body.Close()
 	}
 }
 
