@@ -5,14 +5,14 @@ go 1.18
 require (
 	crawshaw.io/sqlite v0.3.3-0.20210127221821-98b1f83c5508
 	github.com/anacrolix/confluence v1.11.1-0.20220330234942-3c7a0c445dad
-	github.com/anacrolix/dht/v2 v2.19.1
+	github.com/anacrolix/dht/v2 v2.19.2-0.20221121215055-066ad8494444
 	github.com/anacrolix/generics v0.0.0-20220618083756-f99e35403a60
-	github.com/anacrolix/log v0.13.2-0.20220711050817-613cb738ef30
+	github.com/anacrolix/log v0.13.2-0.20221123232138-02e2764801c3
 	github.com/anacrolix/missinggo/v2 v2.7.0
 	github.com/anacrolix/publicip v0.2.0
-	github.com/anacrolix/torrent v1.47.0
+	github.com/anacrolix/torrent v1.47.1-0.20221223001836-291c42801633
 	github.com/aws/aws-sdk-go v1.44.48
-	github.com/frankban/quicktest v1.14.3
+	github.com/frankban/quicktest v1.14.4
 	github.com/getlantern/borda v0.0.0-20220308134056-c4a5602f778e
 	github.com/getlantern/dhtup v0.0.0-20220627142103-ed614929df34
 	github.com/getlantern/errors v1.0.3
@@ -156,7 +156,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
-	github.com/google/go-cmp v0.5.8 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.10.1 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
@@ -167,7 +167,7 @@ require (
 	github.com/keighl/mandrill v0.0.0-20170605120353-1775dd4b3b41 // indirect
 	github.com/klauspost/cpuid v1.3.1 // indirect
 	github.com/klauspost/reedsolomon v1.9.9 // indirect
-	github.com/kr/pretty v0.3.0 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/libp2p/go-buffer-pool v0.0.2 // indirect
 	github.com/lispad/go-generics-tools v1.1.0 // indirect
@@ -209,7 +209,7 @@ require (
 	github.com/prometheus/common v0.35.0 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/refraction-networking/utls v1.0.0 // indirect
-	github.com/rogpeppe/go-internal v1.8.1 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/rs/dnscache v0.0.0-20211102005908-e0241e321417 // indirect
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
 	github.com/samber/lo v1.25.0 // indirect
