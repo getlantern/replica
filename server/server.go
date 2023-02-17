@@ -26,15 +26,15 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
 	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
-	borda "github.com/getlantern/borda/client"
+	"github.com/getsentry/sentry-go"
+	"github.com/gorilla/mux"
+	"github.com/kennygrant/sanitize"
+
 	"github.com/getlantern/dhtup"
 	"github.com/getlantern/errors"
 	"github.com/getlantern/golog"
 	metascrubber "github.com/getlantern/meta-scrubber"
 	"github.com/getlantern/ops"
-	"github.com/getsentry/sentry-go"
-	"github.com/gorilla/mux"
-	"github.com/kennygrant/sanitize"
 
 	"github.com/getlantern/replica/service"
 )
@@ -221,7 +221,7 @@ func NewHTTPHandler(
 		op := ops.Begin("replica_torrent_peer_sent_data")
 		op.Set("remote_addr", event.Peer.RemoteAddr.String())
 		op.Set("remote_network", event.Peer.Network)
-		op.Set("useful_bytes_count", borda.Sum(float64(len(event.Message.Piece))))
+		op.Set("useful_bytes_count", float64(len(event.Message.Piece)))
 		op.End()
 		log.Tracef("reported %v bytes from %v over %v",
 			len(event.Message.Piece),
