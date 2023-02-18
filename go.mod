@@ -34,10 +34,10 @@ require (
 	github.com/anacrolix/torrent v1.48.1-0.20230103142631-c20f73d53e9f
 	github.com/aws/aws-sdk-go v1.44.68
 	github.com/frankban/quicktest v1.14.4
-	github.com/getlantern/dhtup v0.0.0-20230218055728-1d34157df35f
+	github.com/getlantern/dhtup v0.0.0-20230218063409-258bc7570a27
 	github.com/getlantern/errors v1.0.3
 	github.com/getlantern/eventual/v2 v2.0.2
-	github.com/getlantern/flashlight v0.0.0-20230218030700-9c9d61172925
+	github.com/getlantern/flashlight v0.0.0-20230218070418-3458417b6f77
 	github.com/getlantern/golog v0.0.0-20221014032422-49749a7176cf
 	github.com/getlantern/meta-scrubber v0.0.1
 	github.com/getlantern/ops v0.0.0-20220713155959-1315d978fff7
