@@ -38,6 +38,10 @@ type MockDhtResourceImpl struct {
 	path string
 }
 
+func (me MockDhtResourceImpl) ID() string {
+	panic("should not be called")
+}
+
 type fileReaderCloserCtx struct {
 	r *os.File
 }
