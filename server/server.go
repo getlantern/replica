@@ -217,17 +217,19 @@ func NewHTTPHandler(
 	}()
 	cfg.DefaultStorage = defaultStorage
 
-	cfg.Callbacks.ReceivedUsefulData = append(cfg.Callbacks.ReceivedUsefulData, func(event torrent.ReceivedUsefulDataEvent) {
-		op := ops.Begin("replica_torrent_peer_sent_data")
-		op.Set("remote_addr", event.Peer.RemoteAddr.String())
-		op.Set("remote_network", event.Peer.Network)
-		op.Set("useful_bytes_count", float64(len(event.Message.Piece)))
-		op.End()
-		log.Tracef("reported %v bytes from %v over %v",
-			len(event.Message.Piece),
-			event.Peer.RemoteAddr.String(),
-			event.Peer.Network)
-	})
+	cfg.Callbacks.ReceivedUsefulData = append(cfg.Callbacks.ReceivedUsefulData,
+		func(event torrent.ReceivedUsefulDataEvent) {
+			op := ops.Begin("replica_torrent_peer_sent_data")
+			op.Set("remote_addr", event.Peer.RemoteAddr.String())
+			op.Set("remote_network", event.Peer.Network)
+			op.Set("useful_bytes_count", float64(len(event.Message.Piece)))
+			op.Set("info_hash", event.Peer.Torrent().InfoHash().HexString())
+			op.End()
+			log.Tracef("reported %v bytes from %v over %v",
+				len(event.Message.Piece),
+				event.Peer.RemoteAddr.String(),
+				event.Peer.Network)
+		})
 	torrentClient, err := torrent.NewClient(cfg)
 	if err != nil {
 		log.Errorf("Error creating client: %v", err)

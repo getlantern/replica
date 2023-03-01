@@ -10,7 +10,7 @@ require (
 	github.com/anacrolix/log v0.13.2-0.20221123232138-02e2764801c3
 	github.com/anacrolix/missinggo/v2 v2.7.0
 	github.com/anacrolix/publicip v0.2.0
-	github.com/anacrolix/torrent v1.48.1-0.20230103142631-c20f73d53e9f
+	github.com/anacrolix/torrent v1.48.1-0.20230301031729-c069849b4040
 	github.com/aws/aws-sdk-go v1.44.68
 	github.com/frankban/quicktest v1.14.4
 	github.com/getlantern/dhtup v0.0.0-20230218063409-258bc7570a27
@@ -30,7 +30,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1.0.20210721174708-390f27c3be20 // indirect
-	github.com/RoaringBitmap/roaring v1.2.1 // indirect
+	github.com/RoaringBitmap/roaring v1.2.3 // indirect
 	github.com/ajwerner/btree v0.0.0-20211221152037-f427b3e689c0 // indirect
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
 	github.com/anacrolix/chansync v0.3.0 // indirect
@@ -76,7 +76,7 @@ require (
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
 	github.com/pion/datachannel v1.5.2 // indirect
-	github.com/pion/dtls/v2 v2.1.5 // indirect
+	github.com/pion/dtls/v2 v2.2.4 // indirect
 	github.com/pion/ice/v2 v2.2.7 // indirect
 	github.com/pion/interceptor v0.1.12 // indirect
 	github.com/pion/logging v0.2.2 // indirect
@@ -89,8 +89,9 @@ require (
 	github.com/pion/srtp/v2 v2.0.10 // indirect
 	github.com/pion/stun v0.3.5 // indirect
 	github.com/pion/transport v0.13.1 // indirect
+	github.com/pion/transport/v2 v2.0.0 // indirect
 	github.com/pion/turn/v2 v2.0.8 // indirect
-	github.com/pion/udp v0.1.1 // indirect
+	github.com/pion/udp v0.1.4 // indirect
 	github.com/pion/webrtc/v3 v3.1.43 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -105,11 +106,11 @@ require (
 	go.uber.org/goleak v1.1.12 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
-	golang.org/x/crypto v0.1.0 // indirect
+	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/exp v0.0.0-20220823124025-807a23277127 // indirect
-	golang.org/x/net v0.1.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
-	golang.org/x/sys v0.3.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
