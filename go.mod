@@ -1,26 +1,5 @@
 module github.com/getlantern/replica
 
-// These replaces are taken from flashlight. What a nightmare to import.
-replace (
-	// For https://github.com/crawshaw/sqlite/pull/112 and https://github.com/crawshaw/sqlite/pull/103.
-	crawshaw.io/sqlite => github.com/getlantern/sqlite v0.0.0-20220301112206-cb2f8bc7cb56
-
-	github.com/Jigsaw-Code/outline-ss-server => github.com/getlantern/lantern-shadowsocks v1.3.6-0.20230114153732-0193919d4860
-	github.com/elazarl/goproxy => github.com/getlantern/goproxy v0.0.0-20220805074304-4a43a9ed4ec6
-
-	github.com/eycorsican/go-tun2socks => github.com/getlantern/go-tun2socks v1.16.12-0.20201218023150-b68f09e5ae93
-
-	github.com/keighl/mandrill => github.com/getlantern/mandrill v0.0.0-20221004112352-e7c04248adcb
-
-	github.com/lucas-clemente/quic-go => github.com/getlantern/quic-go v0.31.1-0.20230104154904-d810c964a217
-
-	github.com/refraction-networking/utls => github.com/getlantern/utls v0.0.0-20221011213556-17014cb6fc4a
-
-	// We use a fork of gomobile that allows reusing the cache directory for faster builds, based
-	// on this unmerged PR against gomobile - https://github.com/golang/mobile/pull/58.
-	golang.org/x/mobile => github.com/oxtoacart/mobile v0.0.0-20220116191336-0bdf708b6d0f
-)
-
 go 1.18
 
 require (

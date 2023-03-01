@@ -2,6 +2,9 @@ cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797 h1:yDf7ARQc637HoxDho7xjqdvO5ZA2Yb+xzv/fOnnvZzw=
 crawshaw.io/iox v0.0.0-20181124134642-c51c3df30797/go.mod h1:sXBiorCo8c46JlQV3oXPKINnZ8mcqnye1EkVkqsectk=
+crawshaw.io/sqlite v0.3.2/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
+crawshaw.io/sqlite v0.3.3-0.20220618202545-d1964889ea3c h1:wvzox0eLO6CKQAMcOqz7oH3UFqMpMmK7kwmwV+22HIs=
+crawshaw.io/sqlite v0.3.3-0.20220618202545-d1964889ea3c/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
 filippo.io/edwards25519 v1.0.0-rc.1.0.20210721174708-390f27c3be20 h1:iJoUgXvhagsNMrJrvavw7vu1eG8+hm6jLOxlLFcoODw=
 filippo.io/edwards25519 v1.0.0-rc.1.0.20210721174708-390f27c3be20/go.mod h1:N1IkdkCkiLB6tki+MYJoSx2JTY9NUlxZE7eHn5EwJns=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
@@ -159,8 +162,6 @@ github.com/getlantern/meta-scrubber v0.0.1/go.mod h1:nYmOMQXbex3emWMNbt/iDKTXE1q
 github.com/getlantern/ops v0.0.0-20190325191751-d70cb0d6f85f/go.mod h1:D5ao98qkA6pxftxoqzibIBBrLSUli+kYnJqrgBf9cIA=
 github.com/getlantern/ops v0.0.0-20220713155959-1315d978fff7 h1:Od0xvR4iK3gZwhkIbxnHw4Teusv+n5G/F9dW7x+C2f0=
 github.com/getlantern/ops v0.0.0-20220713155959-1315d978fff7/go.mod h1:D5ao98qkA6pxftxoqzibIBBrLSUli+kYnJqrgBf9cIA=
-github.com/getlantern/sqlite v0.0.0-20220301112206-cb2f8bc7cb56 h1:sAXnWKv8c28+G9fTitNopAYbIUswIWnOIOPXY+c/kGA=
-github.com/getlantern/sqlite v0.0.0-20220301112206-cb2f8bc7cb56/go.mod h1:igAO5JulrQ1DbdZdtVq48mnZUBAPOeFzer7VhDWNtW4=
 github.com/getsentry/sentry-go v0.13.0 h1:20dgTiUSfxRB/EhMPtxcL9ZEbM1ZdR+W/7f7NWD+xWo=
 github.com/getsentry/sentry-go v0.13.0/go.mod h1:EOsfu5ZdvKPfeHYV6pTVQnsjfp30+XA7//UooKNumH0=
 github.com/glycerine/go-unsnap-stream v0.0.0-20180323001048-9f0cb55181dd/go.mod h1:/20jfyN9Y5QPEAprSgKAUr+glWDY39ZiUEAYOEv5dsE=
