@@ -38,3 +38,19 @@ split-json: rm-split-files $(BUCKET_JSON_FILE).0
 $(BUCKET_JSON_FILE).%: $(BUCKET_JSON_FILE)
 	jq ".Contents[$*000000:$$((($*+1)*1000000))]" $< > $@
 	[[ $$(jq length $@) == 0 ]] || make $(BUCKET_JSON_FILE).$$(($*+1))
+
+.PHONY: get-metadata
+get-metadata:
+	# aws-endpoint-env is a wrapper around aws that lets me provide an endpoint url from the environment.  There's probably a much better way to do this, like having AWS as make variable.
+	aws-endpoint-env --profile $(PROFILE) s3 cp s3://$(BUCKET) $(BUCKET) --exclude '*' --include '*/metadata' --recursive
+
+$(BUCKET):
+	make get-metadata
+
+import-metadata: $(BUCKET)
+	for info_hash_hex in `ls $(BUCKET)`; do \
+`# 		echo $$info_hash_hex || break;` \
+		sqlite3 replica.db <<< \
+			"replace into metadata (info_hash_hex, metadata) values ('$$info_hash_hex', readfile('$(BUCKET)/$$info_hash_hex/metadata'))" \
+		|| break; \
+	done

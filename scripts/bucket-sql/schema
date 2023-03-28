@@ -1,4 +1,6 @@
 CREATE TABLE object(key, last_modified, etag, size, bucket);
+create table metadata (info_hash_hex primary key, metadata);
+
 CREATE VIEW data_suf as
 	with
 		first_slash as (
