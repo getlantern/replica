@@ -1,2 +1,4 @@
 *.json*
 replica.db*
+replica/
+getlantern-replica-frankfurt/
