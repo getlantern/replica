@@ -862,6 +862,21 @@ func addWebseedUrls(t *torrent.Torrent, urls []string) {
 	}
 }
 
+// This is extracted out so external packages can apply configs appropriately.
+func ApplyReplicaOptions(ro ReplicaOptions, t *torrent.Torrent) {
+	prefix := t.InfoHash().HexString()
+	t.AddTrackers([][]string{ro.GetTrackers()})
+	for _, peerAddr := range ro.GetStaticPeerAddrs() {
+		t.AddPeers([]torrent.PeerInfo{{
+			Addr:    torrent.StringAddr(peerAddr),
+			Source:  torrent.PeerSourceDirect,
+			Trusted: true,
+		}})
+	}
+	t.UseSources(getMetainfoUrls(ro, prefix))
+	t.AddWebSeeds(getWebseedUrls(ro, prefix))
+}
+
 func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Request, inlineType string) error {
 	rw.Set("inline_type", inlineType)
 
@@ -881,29 +896,11 @@ func (me *HttpHandler) handleViewWith(rw InstrumentedResponseWriter, r *http.Req
 
 	log.Debugf("adding static peers: %q", gc.GetStaticPeerAddrs())
 
-	spec := &torrent.TorrentSpec{
-		Trackers:    [][]string{gc.GetTrackers()},
-		InfoHash:    m.InfoHash,
-		DisplayName: m.DisplayName,
-		PeerAddrs:   gc.GetStaticPeerAddrs(),
-		Sources:     getMetainfoUrls(gc, m.InfoHash.HexString()),
-	}
-	webseedUrls := getWebseedUrls(gc, m.InfoHash.HexString())
-
-	// TODO: Remove this when infohash prefixing is used throughout.
-	var uploadSpec service.Upload
-	unwrapUploadSpecErr := uploadSpec.FromMagnet(m)
-	if unwrapUploadSpecErr == nil {
-		spec.Sources = append(spec.Sources, getMetainfoUrls(gc, uploadSpec.PrefixString())...)
-		webseedUrls = append(webseedUrls, getWebseedUrls(gc, uploadSpec.PrefixString())...)
-	} else {
-		log.Debugf("unwrapping upload spec from magnet link: %v", unwrapUploadSpecErr)
+	if m.DisplayName != "" {
+		t.SetDisplayName(m.DisplayName)
 	}
 
-	if err := t.MergeSpec(spec); err != nil {
-		return errors.New("merging spec: %v", err)
-	}
-	addWebseedUrls(t, webseedUrls)
+	ApplyReplicaOptions(gc, t)
 
 	selectOnly, err := strconv.ParseUint(m.Params.Get("so"), 10, 0)
 	// Assume that it should be present, as it'll be added going forward where possible. When it's
