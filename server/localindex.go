@@ -16,7 +16,7 @@ import (
 
 	"crawshaw.io/sqlite"
 	"crawshaw.io/sqlite/sqlitex"
-	"github.com/anacrolix/generics"
+	g "github.com/anacrolix/generics"
 	"github.com/anacrolix/missinggo/v2"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/getlantern/dhtup"
@@ -198,7 +198,7 @@ func (me *LocalIndexDhtDownloader) download(ctx context.Context) (err error, has
 
 	// The previous behaviour here was to delete the main database file for the currently used
 	// index. Instead, we wait until the new database is ready, then delete any unused ones.
-	err = localIndexDir{me.configDir}.deleteUnusedIndexFiles(generics.Some(filepath.Base(newPath)))
+	err = localIndexDir{me.configDir}.deleteUnusedIndexFiles(g.Some(filepath.Base(newPath)))
 	if err != nil {
 		log.Errorf("Error deleting old local index files: %v", err)
 	}

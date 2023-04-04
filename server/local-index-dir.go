@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/anacrolix/generics"
+	g "github.com/anacrolix/generics"
 )
 
 // Handles local index database file management. Ended up separate to make unit testing trivial.
@@ -22,14 +22,14 @@ var (
 )
 
 // Returns the base file name of the latest index file.
-func (me localIndexDir) getLatestIndex() (_ generics.Option[string], err error) {
+func (me localIndexDir) getLatestIndex() (_ g.Option[string], err error) {
 	allIndexPaths, err := me.listAllIndexes()
 	if err != nil {
 		return
 	}
 	sort.Strings(allIndexPaths)
 	if len(allIndexPaths) > 0 {
-		return generics.Some(allIndexPaths[len(allIndexPaths)-1]), nil
+		return g.Some(allIndexPaths[len(allIndexPaths)-1]), nil
 	}
 	return
 }
@@ -49,7 +49,7 @@ func (me localIndexDir) listAllIndexes() (fileNames []string, err error) {
 	return
 }
 
-func (me localIndexDir) deleteUnusedIndexFiles(currentIndexName generics.Option[string]) error {
+func (me localIndexDir) deleteUnusedIndexFiles(currentIndexName g.Option[string]) error {
 	entries, err := os.ReadDir(me.dir)
 	if err != nil {
 		return err
