@@ -6,8 +6,8 @@ require (
 	crawshaw.io/sqlite v0.3.3-0.20220618202545-d1964889ea3c
 	github.com/anacrolix/confluence v1.11.1-0.20220330234942-3c7a0c445dad
 	github.com/anacrolix/dht/v2 v2.19.2-0.20221121215055-066ad8494444
-	github.com/anacrolix/generics v0.0.0-20220618083756-f99e35403a60
-	github.com/anacrolix/log v0.13.2-0.20221123232138-02e2764801c3
+	github.com/anacrolix/generics v0.0.0-20230319051538-e535f6c62671
+	github.com/anacrolix/log v0.13.2-0.20230321060035-55d3d9e3ed3f
 	github.com/anacrolix/missinggo/v2 v2.7.0
 	github.com/anacrolix/publicip v0.2.0
 	github.com/anacrolix/torrent v1.48.1-0.20230301031729-c069849b4040
@@ -36,6 +36,7 @@ require (
 	github.com/anacrolix/chansync v0.3.0 // indirect
 	github.com/anacrolix/envpprof v1.2.1 // indirect
 	github.com/anacrolix/go-libutp v1.2.0 // indirect
+	github.com/anacrolix/goanna v0.0.0-20230328021619-fd89eb33bb6b // indirect
 	github.com/anacrolix/missinggo v1.3.0 // indirect
 	github.com/anacrolix/missinggo/perf v1.0.0 // indirect
 	github.com/anacrolix/mmsg v1.0.0 // indirect
