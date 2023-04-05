@@ -15,6 +15,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -50,11 +51,11 @@ func main() {
 	_, err = pageTmpl.Parse(`
 		{{ range . }}
 			{{ $torrent := . }}
-			<p>{{ if .Info }}{{ .Info.Name }}{{ else }}{{ .InfoHash }}{{ end }}</p>
+			<p>{{ if .Info }}{{ .Info.Name }}{{ else }}{{ .InfoHash }}{{ end }}: {{ .EventAge }}</p>
 			{{ if .Info }}
 				<ul>
 					{{ range $fileIndex, $file := .Files }}
-						<li><a href="/{{ $torrent.InfoHash }}/{{ $fileIndex }}">{{ .Path }}</a></li>
+						<li><a href="/{{ $torrent.InfoHash }}/{{ $fileIndex }}">{{ .DisplayPath }}</a></li>
 					{{ end }}
 				</ul>
 			{{ end }}
@@ -99,7 +100,7 @@ func main() {
 		}
 		var wg sync.WaitGroup
 		const maxTorrents = 30
-		userTorrents := make(chan *torrent.Torrent, maxTorrents)
+		userTorrents := make(chan pageTorrent, maxTorrents)
 		getInfoSem := make(chan struct{}, 10)
 		for _, event := range events.Val() {
 			hexStr := event.Values["prefix"].(string)
@@ -152,7 +153,10 @@ func main() {
 					if !strings.HasPrefix(t.Info().Name, "youtube") {
 						log.Printf("got user upload from %v ago", time.Since(eventTime))
 						select {
-						case userTorrents <- t:
+						case userTorrents <- pageTorrent{
+							Torrent:  t,
+							EventAge: time.Second * time.Duration(math.Floor(time.Since(eventTime).Seconds())),
+						}:
 						default:
 						}
 					}
@@ -174,7 +178,7 @@ func main() {
 		}
 		wg.Wait()
 		close(userTorrents)
-		userTorrentsSlice := make([]*torrent.Torrent, 0, len(userTorrents))
+		userTorrentsSlice := make([]pageTorrent, 0, len(userTorrents))
 		for t := range userTorrents {
 			userTorrentsSlice = append(userTorrentsSlice, t)
 		}
@@ -184,4 +188,9 @@ func main() {
 		}
 	})
 	panic(http.ListenAndServe(":80", nil))
+}
+
+type pageTorrent struct {
+	*torrent.Torrent
+	EventAge time.Duration
 }
