@@ -23,7 +23,7 @@ import-bucket: $(BUCKET_JSON_FILE).0
 
 # Unadulterated output from s3api list-objects-v2, with a .Contents array.
 %.json:
-	aws --profile '$(PROFILE)' s3api list-objects-v2 --bucket $* > $@~
+	aws-endpoint-env --profile '$(PROFILE)' s3api list-objects-v2 --bucket $* > $@~
 	mv $@~ $@
 
 # We need BUCKET_JSON_FILE, but we don't actually want to trigger on it.
@@ -42,7 +42,7 @@ $(BUCKET_JSON_FILE).%: $(BUCKET_JSON_FILE)
 .PHONY: get-metadata
 get-metadata:
 	# aws-endpoint-env is a wrapper around aws that lets me provide an endpoint url from the environment.  There's probably a much better way to do this, like having AWS as make variable.
-	aws-endpoint-env --profile $(PROFILE) s3 cp s3://$(BUCKET) $(BUCKET) --exclude '*' --include '*/metadata' --recursive
+	aws-endpoint-env --profile $(PROFILE) s3 sync s3://$(BUCKET) $(BUCKET) --exclude '*' --include '*/metadata'
 
 $(BUCKET):
 	make get-metadata
