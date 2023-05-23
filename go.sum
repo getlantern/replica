@@ -154,7 +154,7 @@ github.com/getlantern/errors v1.0.3 h1:Ne4Ycj7NI1BtSyAfVeAT/DNoxz7/S2BUc3L2Ht1YS
 github.com/getlantern/errors v1.0.3/go.mod h1:m8C7H1qmouvsGpwQqk/6NUpIVMpfzUPn608aBZDYV04=
 github.com/getlantern/eventual/v2 v2.0.2 h1:7b3N2oQBVqSHwm/8u7C8b6W+OkkjgZSmwUc1AdIkrHc=
 github.com/getlantern/eventual/v2 v2.0.2/go.mod h1:o1VZHRk8UArBra+pwPSi23WrahBG4qgg4/ew6Mmlq84=
-github.com/getlantern/flashlight v0.0.0-20230403092335-5f84ae10c585 h1:lVu4HyDAxXkX4kJEJQWpJJz+Poprb0crUGW5zhoh3GU=
+github.com/getlantern/flashlight v0.0.0-20230403092335-5f84ae10c585 h1:q8vlnsq3a/wF3fBE85+Dg4nCIiDWacS1WnisPnxVU0w=
 github.com/getlantern/flashlight v0.0.0-20230403092335-5f84ae10c585/go.mod h1:e4fn/dZB7jV0nze4uMbEWKjo04JLrq/877gYIYTawLI=
 github.com/getlantern/golog v0.0.0-20221014032422-49749a7176cf h1:VLM1gChzNF4KrFRa0BJDo/OnxG9ZDI6JNcNkqz4mZEI=
 github.com/getlantern/golog v0.0.0-20221014032422-49749a7176cf/go.mod h1:+ZU1h+iOVqWReBpky6d5Y2WL0sF2Llxu+QcxJFs2+OU=
