@@ -10,11 +10,14 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
+	qt "github.com/frankban/quicktest"
 	"github.com/getlantern/dhtup"
 	"github.com/getlantern/golog/testlog"
 	"github.com/stretchr/testify/assert"
@@ -283,4 +286,26 @@ func TestUploadAndDelete_DontSaveUploads(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, files)
 	require.Empty(t, handler.torrentClient.Torrents())
+}
+
+func TestWalkTorrentClientStatsForExport(t *testing.T) {
+	fields := make(map[string]any)
+	stats := torrent.ClientStats{}
+	stats.ConnStats.BytesReadUsefulData.Add(69)
+	walkFieldsForMetrics(
+		func(path []string, value any) {
+			key := strings.Join(path, ".")
+			if _, ok := fields[key]; ok {
+				t.Fatalf("duplicate key: %q", key)
+			}
+			fields[key] = value
+		},
+		reflect.ValueOf(stats),
+		nil,
+	)
+	for key, _ := range fields {
+		t.Log(key)
+	}
+	c := qt.New(t)
+	c.Check(fields["ConnStats.BytesReadUsefulData"], qt.Equals, int64(69))
 }

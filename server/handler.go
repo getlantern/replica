@@ -15,10 +15,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/anacrolix/chansync"
 	"github.com/anacrolix/confluence/confluence"
 	"github.com/anacrolix/dht/v2"
 	analog "github.com/anacrolix/log"
@@ -55,6 +57,7 @@ type HttpHandler struct {
 	NewHttpHandlerInput
 	uploadStorage  storage.ClientImplCloser
 	defaultStorage storage.ClientImplCloser
+	closed         chansync.SetOnce
 }
 
 func getMetainfoUrls(ro ReplicaOptions, prefix string) (ret []string) {
@@ -326,6 +329,7 @@ func NewHTTPHandler(
 			return nil, errors.New("iterating through uploads: %v", err)
 		}
 	}
+	go handler.metricsExporter()
 	return handler, nil
 }
 
@@ -339,6 +343,7 @@ func (me *HttpHandler) Close() {
 	me.torrentClient.Close()
 	me.uploadStorage.Close()
 	me.defaultStorage.Close()
+	me.closed.Set()
 }
 
 // handlerError is just a small wrapper around errors so that we can more easily return them from
@@ -1106,4 +1111,53 @@ func encodeJsonErrorResponse(rw http.ResponseWriter, resp interface{}, statusCod
 
 func (me *HttpHandler) addImplicitTrackers(t *torrent.Torrent) {
 	t.AddTrackers([][]string{me.GlobalConfig().GetTrackers()})
+}
+
+func (me *HttpHandler) metricsExporter() {
+	for {
+		me.doMetricsOp()
+		select {
+		case <-me.closed.Done():
+			return
+		case <-time.After(5 * time.Minute):
+		}
+	}
+}
+
+func (me *HttpHandler) doMetricsOp() {
+	op := ops.Begin("replica_metrics")
+	stats := me.torrentClient.Stats()
+	walkFieldsForMetrics(
+		func(path []string, value any) {
+			op.Set(
+				strings.Join(append([]string{"HttpHandler", "torrentClient", "Stats"}, path...), "."),
+				value,
+			)
+		},
+		reflect.ValueOf(stats),
+		nil,
+	)
+	op.End()
+	log.Debugf("exported replica metrics")
+}
+
+func walkFieldsForMetrics(f func(path []string, value any), rv reflect.Value, path []string) {
+	i := rv.Interface()
+	if count, ok := i.(torrent.Count); ok {
+		f(path, count.Int64())
+		return
+	}
+	switch rv.Kind() {
+	case reflect.Struct:
+		//log.Debugf("walking struct in %v", path)
+		for fieldIndex := 0; fieldIndex < rv.NumField(); fieldIndex++ {
+			sf := rv.Type().Field(fieldIndex)
+			if !sf.IsExported() {
+				continue
+			}
+			walkFieldsForMetrics(f, rv.FieldByIndex(sf.Index), append(path, sf.Name))
+		}
+	default:
+		f(path, rv.Interface())
+	}
 }

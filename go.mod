@@ -1,17 +1,18 @@
 module github.com/getlantern/replica
 
-go 1.18
+go 1.19
 
 require (
 	crawshaw.io/sqlite v0.3.3-0.20220618202545-d1964889ea3c
+	github.com/anacrolix/chansync v0.3.0
 	github.com/anacrolix/confluence v1.11.1-0.20220330234942-3c7a0c445dad
 	github.com/anacrolix/dht/v2 v2.19.2-0.20221121215055-066ad8494444
-	github.com/anacrolix/generics v0.0.0-20230314234802-b3aec36ef63e
-	github.com/anacrolix/log v0.13.2-0.20230321060035-55d3d9e3ed3f
+	github.com/anacrolix/generics v0.0.0-20230428105757-683593396d68
+	github.com/anacrolix/log v0.13.2-0.20230518105052-6aef2c4c91f1
 	github.com/anacrolix/missinggo/v2 v2.7.0
 	github.com/anacrolix/publicip v0.2.0
 	github.com/anacrolix/squirrel v0.4.1-0.20220122230132-14b040773bac
-	github.com/anacrolix/torrent v1.50.0
+	github.com/anacrolix/torrent v1.51.2
 	github.com/aws/aws-sdk-go v1.44.68
 	github.com/davecgh/go-spew v1.1.1
 	github.com/frankban/quicktest v1.14.4
@@ -36,7 +37,6 @@ require (
 	github.com/RoaringBitmap/roaring v1.2.3 // indirect
 	github.com/ajwerner/btree v0.0.0-20211221152037-f427b3e689c0 // indirect
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
-	github.com/anacrolix/chansync v0.3.0 // indirect
 	github.com/anacrolix/envpprof v1.2.1 // indirect
 	github.com/anacrolix/go-libutp v1.2.0 // indirect
 	github.com/anacrolix/missinggo v1.3.0 // indirect
