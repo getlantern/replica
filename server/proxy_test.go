@@ -10,9 +10,10 @@ import (
 	"testing"
 
 	"github.com/getlantern/golog/testlog"
-	"github.com/getlantern/replica/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/getlantern/replica/service"
 )
 
 func TestProxy(t *testing.T) {

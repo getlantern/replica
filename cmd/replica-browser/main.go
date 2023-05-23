@@ -3,15 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/anacrolix/log"
-	"github.com/anacrolix/squirrel"
-	"github.com/anacrolix/torrent"
-	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
-	"github.com/anacrolix/torrent/types/infohash"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/getlantern/flashlight/embeddedconfig"
-	"github.com/getlantern/replica/server"
-	"github.com/redis/go-redis/v9"
 	"html/template"
 	"io"
 	"io/fs"
@@ -21,6 +12,17 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/anacrolix/log"
+	"github.com/anacrolix/squirrel"
+	"github.com/anacrolix/torrent"
+	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
+	"github.com/anacrolix/torrent/types/infohash"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/getlantern/flashlight/embeddedconfig"
+	"github.com/redis/go-redis/v9"
+
+	"github.com/getlantern/replica/server"
 )
 
 func main() {

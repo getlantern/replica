@@ -17,10 +17,11 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/getlantern/dhtup"
 	"github.com/getlantern/golog/testlog"
-	"github.com/getlantern/replica/projectpath"
-	"github.com/getlantern/replica/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/getlantern/replica/projectpath"
+	"github.com/getlantern/replica/service"
 )
 
 func getDummySearchRequest(t *testing.T) (*http.Request, context.CancelFunc) {

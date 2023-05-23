@@ -7,8 +7,9 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/getlantern/replica/service"
 	"github.com/stretchr/testify/require"
+
+	"github.com/getlantern/replica/service"
 )
 
 func TestCreateLink(t *testing.T) {

@@ -3,9 +3,8 @@ package replicaConfig
 import (
 	"net/url"
 
-	"github.com/mitchellh/mapstructure"
-
 	"github.com/getlantern/golog"
+	"github.com/mitchellh/mapstructure"
 
 	replicaServer "github.com/getlantern/replica/server"
 	replicaService "github.com/getlantern/replica/service"

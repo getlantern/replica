@@ -26,15 +26,14 @@ import (
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
 	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
-	"github.com/getsentry/sentry-go"
-	"github.com/gorilla/mux"
-	"github.com/kennygrant/sanitize"
-
 	"github.com/getlantern/dhtup"
 	"github.com/getlantern/errors"
 	"github.com/getlantern/golog"
 	metascrubber "github.com/getlantern/meta-scrubber"
 	"github.com/getlantern/ops"
+	"github.com/getsentry/sentry-go"
+	"github.com/gorilla/mux"
+	"github.com/kennygrant/sanitize"
 
 	"github.com/getlantern/replica/service"
 )
