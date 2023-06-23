@@ -8,11 +8,11 @@ require (
 	github.com/anacrolix/confluence v1.11.1-0.20220330234942-3c7a0c445dad
 	github.com/anacrolix/dht/v2 v2.19.2-0.20221121215055-066ad8494444
 	github.com/anacrolix/generics v0.0.0-20230428105757-683593396d68
-	github.com/anacrolix/log v0.13.2-0.20230518105052-6aef2c4c91f1
-	github.com/anacrolix/missinggo/v2 v2.7.0
+	github.com/anacrolix/log v0.14.0
+	github.com/anacrolix/missinggo/v2 v2.7.2-0.20230527121029-a582b4f397b9
 	github.com/anacrolix/publicip v0.2.0
-	github.com/anacrolix/squirrel v0.4.1-0.20220122230132-14b040773bac
-	github.com/anacrolix/torrent v1.51.2
+	github.com/anacrolix/squirrel v0.4.1-0.20230623120945-75cf0ad9a958
+	github.com/anacrolix/torrent v1.52.1
 	github.com/aws/aws-sdk-go v1.44.68
 	github.com/davecgh/go-spew v1.1.1
 	github.com/frankban/quicktest v1.14.4
