@@ -847,25 +847,6 @@ func (me *HttpHandler) handleView(rw InstrumentedResponseWriter, r *http.Request
 	return me.handleViewWith(rw, r, "inline")
 }
 
-func gcoreWebseedPathEscaper(pathComps []string) string {
-	var ret []string
-	for _, comp := range pathComps {
-		ret = append(ret, url.PathEscape(comp))
-	}
-	return path.Join(ret...)
-}
-
-func addWebseedUrls(t *torrent.Torrent, urls []string) {
-	for _, url_ := range urls {
-		var opts []torrent.AddWebSeedsOpt
-		// https://github.com/getlantern/lantern-internal/issues/5461#issuecomment-1105035475
-		if strings.Contains(url_, "gcore") {
-			opts = append(opts, torrent.WebSeedPathEscaper(gcoreWebseedPathEscaper))
-		}
-		t.AddWebSeeds([]string{url_}, opts...)
-	}
-}
-
 // This is extracted out so external packages can apply configs appropriately.
 func ApplyReplicaOptions(ro ReplicaOptions, t *torrent.Torrent) {
 	prefix := t.InfoHash().HexString()
