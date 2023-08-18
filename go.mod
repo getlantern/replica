@@ -7,12 +7,12 @@ require (
 	github.com/anacrolix/chansync v0.3.0
 	github.com/anacrolix/confluence v1.11.1-0.20220330234942-3c7a0c445dad
 	github.com/anacrolix/dht/v2 v2.19.2-0.20221121215055-066ad8494444
-	github.com/anacrolix/generics v0.0.0-20230428105757-683593396d68
+	github.com/anacrolix/generics v0.0.0-20230816103846-fe11fdc0e0e3
 	github.com/anacrolix/log v0.14.0
 	github.com/anacrolix/missinggo/v2 v2.7.2-0.20230527121029-a582b4f397b9
 	github.com/anacrolix/publicip v0.2.0
-	github.com/anacrolix/squirrel v0.4.1-0.20230623120945-75cf0ad9a958
-	github.com/anacrolix/torrent v1.52.1
+	github.com/anacrolix/squirrel v0.4.1
+	github.com/anacrolix/torrent v1.52.6-0.20230822025354-78cd5a1c0aef
 	github.com/aws/aws-sdk-go v1.44.68
 	github.com/davecgh/go-spew v1.1.1
 	github.com/frankban/quicktest v1.14.4
@@ -38,7 +38,7 @@ require (
 	github.com/ajwerner/btree v0.0.0-20211221152037-f427b3e689c0 // indirect
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
 	github.com/anacrolix/envpprof v1.2.1 // indirect
-	github.com/anacrolix/go-libutp v1.2.0 // indirect
+	github.com/anacrolix/go-libutp v1.3.1 // indirect
 	github.com/anacrolix/missinggo v1.3.0 // indirect
 	github.com/anacrolix/missinggo/perf v1.0.0 // indirect
 	github.com/anacrolix/mmsg v1.0.0 // indirect
@@ -76,7 +76,6 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/lispad/go-generics-tools v1.1.0 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
 	github.com/pion/datachannel v1.5.2 // indirect

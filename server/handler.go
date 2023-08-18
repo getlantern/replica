@@ -75,6 +75,8 @@ func getWebseedUrls(ro ReplicaOptions, prefix string) (ret []string) {
 }
 
 type NewHttpHandlerInput struct {
+	// Should be used for webseeding and torrent sources.
+	TorrentWebTransport http.RoundTripper
 	// Used to proxy http calls
 	TorrentClientHTTPProxy func(*http.Request) (*url.URL, error)
 	// Takes a tracker's hostname and requests DNS A and AAAA records.
@@ -232,6 +234,7 @@ func NewHTTPHandler(
 				event.Peer.RemoteAddr.String(),
 				event.Peer.Network)
 		})
+	cfg.WebTransport = input.TorrentWebTransport
 	torrentClient, err := torrent.NewClient(cfg)
 	if err != nil {
 		log.Errorf("Error creating client: %v", err)
