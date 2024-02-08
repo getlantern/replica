@@ -699,6 +699,8 @@ func (me *HttpHandler) handleMetadata(category string) func(InstrumentedResponse
 			Method: http.MethodGet,
 			Header: make(http.Header),
 		}).WithContext(r.Context())
+		// These headers are only forwarded because we're going to forward the response straight
+		// back to the browser!
 		for _, h := range []string{
 			"Accept",
 			"Accept-Encoding",
@@ -970,7 +972,9 @@ func (me *HttpHandler) handleObjectInfo(rw InstrumentedResponseWriter, r *http.R
 			default:
 				return false
 			}
-		}, metainfoUrls(m, me.GlobalConfig()))
+		},
+		metainfoUrls(m, me.GlobalConfig()),
+	)
 	if err != nil {
 		return err
 	}
@@ -988,56 +992,48 @@ func (me *HttpHandler) handleObjectInfo(rw InstrumentedResponseWriter, r *http.R
 		Method: http.MethodGet,
 		Header: make(http.Header),
 	}).WithContext(r.Context())
-	for _, h := range []string{
-		"Accept",
-		"Accept-Encoding",
-		"Accept-Language",
-		"Range",
-	} {
-		for _, v := range r.Header[h] {
-			mr.Header.Add(h, v)
-		}
-	}
-	gc := me.GlobalConfig()
+	mr.Header.Set("Accept", "application/json")
 
+	gc := me.GlobalConfig()
 	key := fmt.Sprintf("%s/metadata", m.InfoHash.HexString())
 
-	resp, err = doFirst(mr, me.HttpClient, func(r *http.Response) bool {
-		return r.StatusCode/100 == 2
-	}, func() (ret []string) {
-		for _, s := range gc.GetMetadataBaseUrls() {
-			ret = append(ret, s+key)
-		}
-		return
-	}())
+	resp, err = doFirst(
+		mr, me.HttpClient,
+		func(r *http.Response) bool {
+			// Should we check for no encoding and JSON here?
+			return r.StatusCode/100 == 2
+		},
+		func() (ret []string) {
+			for _, s := range gc.GetMetadataBaseUrls() {
+				ret = append(ret, s+key)
+			}
+			return
+		}())
 
-	if err != nil {
-		if stdErrors.Is(err, r.Context().Err()) {
+	// Whatever the response, we don't want the front-end to try again for a while.
+	rw.Header().Set("Cache-Control", "public, max-age=600, immutable")
+	if err == nil {
+		defer resp.Body.Close()
+		bodyBuf, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Errorf("error buffering metadata response for object info: %v", err)
+			goto respond
+		}
+		err = json.NewDecoder(bytes.NewReader(bodyBuf)).Decode(&metadata)
+		if err != nil {
+			log.Errorf("decoding metadata json into object info: %v", err)
+		}
+	} else {
+		if r.Context().Err() != nil {
 			return err
 		}
-
-		log.Errorf("getting metadata: %w", err)
-		rw.Header().Set("Cache-Control", "public, max-age=86400, immutable")
-		return encodeJsonResponse(rw, metadata)
+		log.Errorf("getting metadata for object info: %v", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound {
-		// Not all torrents have metadata files
-		rw.Header().Set("Cache-Control", "public, max-age=86400, immutable")
-		return encodeJsonResponse(rw, metadata)
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&metadata)
-	if err != nil {
-		return errors.New("doing json decode for metadata: %v", err)
-	}
-
-	rw.Header().Set("Cache-Control", "public, max-age=604800, immutable")
+respond:
 	return encodeJsonResponse(rw, metadata)
 }
 
-// What a bad language.
+// What a bad language. TODO: cmp.Or this shit.
 func firstNonEmptyString(ss ...string) string {
 	for _, s := range ss {
 		if s != "" {
