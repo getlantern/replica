@@ -122,7 +122,9 @@ func main() {
 			}
 			infoBytesKey := fmt.Sprintf("infobytes/%s", ih.HexString())
 			infoWasCached := false
-			pb, err := squirrelCache.Open(infoBytesKey)
+			// There is a Cache.ReadAll method now... Keeping this for now in case versions need to
+			// be rewound.
+			pb, err := squirrelCache.OpenPinnedReadOnly(infoBytesKey)
 			if err == nil {
 				infoBytes, err := io.ReadAll(io.NewSectionReader(pb, 0, pb.Length()))
 				if err != nil {

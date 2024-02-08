@@ -14,8 +14,8 @@ import (
 	"time"
 	"unicode"
 
-	"crawshaw.io/sqlite"
-	"crawshaw.io/sqlite/sqlitex"
+	"github.com/go-llsqlite/crawshaw"
+	"github.com/go-llsqlite/crawshaw/sqlitex"
 	g "github.com/anacrolix/generics"
 	"github.com/anacrolix/missinggo/v2"
 	"github.com/anacrolix/torrent/metainfo"
