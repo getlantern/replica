@@ -14,13 +14,13 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/go-llsqlite/crawshaw"
-	"github.com/go-llsqlite/crawshaw/sqlitex"
 	g "github.com/anacrolix/generics"
 	"github.com/anacrolix/missinggo/v2"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/getlantern/dhtup"
 	"github.com/getlantern/eventual/v2"
+	"github.com/go-llsqlite/crawshaw"
+	"github.com/go-llsqlite/crawshaw/sqlitex"
 
 	"github.com/getlantern/replica"
 	"github.com/getlantern/replica/service"
