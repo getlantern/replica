@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io"
 	"io/fs"
 	"math"
 	"net/http"
@@ -126,12 +125,8 @@ func main() {
 			infoWasCached := false
 			// There is a Cache.ReadAll method now... Keeping this for now in case versions need to
 			// be rewound.
-			pb, err := squirrelCache.OpenPinnedReadOnly(infoBytesKey)
+			infoBytes, err := squirrelCache.ReadAll(infoBytesKey, nil)
 			if err == nil {
-				infoBytes, err := io.ReadAll(io.NewSectionReader(pb, 0, pb.Length()))
-				if err != nil {
-					panic(err)
-				}
 				addOpts.InfoBytes = infoBytes
 				infoWasCached = true
 			} else if errors.Is(err, fs.ErrNotExist) {
@@ -139,8 +134,8 @@ func main() {
 			} else {
 				panic(err)
 			}
-			t, new := tc.AddTorrentOpt(addOpts)
-			if new {
+			t, torIsNew := tc.AddTorrentOpt(addOpts)
+			if torIsNew {
 				server.ApplyReplicaOptions(&embeddedconfig.GlobalReplicaOptions, t)
 			}
 			wg.Add(1)
@@ -149,7 +144,7 @@ func main() {
 			go func() {
 				select {
 				case <-t.GotInfo():
-					if new && !infoWasCached {
+					if torIsNew && !infoWasCached {
 						log.Printf("got info for %v after %v", t.InfoHash().HexString(), time.Since(started))
 						err = squirrelCache.Put(infoBytesKey, t.Metainfo().InfoBytes)
 						if err != nil {
