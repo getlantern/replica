@@ -97,7 +97,7 @@ func main() {
 			http.NotFound(w, r)
 			return
 		}
-		events := rc.XRevRangeN(ctx, "uploads:cloudflare-replica", "+", "-", 10000)
+		events := rc.XRevRangeN(ctx, "uploads:cloudflare-replica", "+", "-", 1000)
 		if events.Err() != nil {
 			panic(events.Err())
 		}
