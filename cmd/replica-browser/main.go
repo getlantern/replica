@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -19,7 +20,7 @@ import (
 	sqliteStorage "github.com/anacrolix/torrent/storage/sqlite"
 	"github.com/anacrolix/torrent/types/infohash"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/getlantern/flashlight/embeddedconfig"
+	"github.com/getlantern/flashlight/v7/embeddedconfig"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/getlantern/replica/server"
@@ -28,7 +29,8 @@ import (
 func main() {
 	spew.Dump(embeddedconfig.GlobalReplicaOptions)
 	rc := redis.NewClient(&redis.Options{
-		Addr: "replica-redis.internal:6379",
+		Addr:        "replica-redis.internal:6379",
+		ReadTimeout: 10 * time.Second,
 	})
 	defer rc.Close()
 	ctx := context.Background()
@@ -132,7 +134,7 @@ func main() {
 				}
 				addOpts.InfoBytes = infoBytes
 				infoWasCached = true
-			} else if err == fs.ErrNotExist {
+			} else if errors.Is(err, fs.ErrNotExist) {
 				getInfoSem <- struct{}{}
 			} else {
 				panic(err)
