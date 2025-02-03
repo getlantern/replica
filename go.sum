@@ -150,13 +150,9 @@ github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4
 github.com/getlantern/context v0.0.0-20190109183933-c447772a6520/go.mod h1:L+mq6/vvYHKjCX2oez0CgEAJmbq1fbb/oNJIWQkBybY=
 github.com/getlantern/context v0.0.0-20220418194847-3d5e7a086201 h1:oEZYEpZo28Wdx+5FZo4aU7JFXu0WG/4wJWese5reQSA=
 github.com/getlantern/context v0.0.0-20220418194847-3d5e7a086201/go.mod h1:Y9WZUHEb+mpra02CbQ/QczLUe6f0Dezxaw5DCJlJQGo=
-github.com/getlantern/dhtup v0.0.0-20230218063409-258bc7570a27 h1:s0V8y7LIHcGUsSk8IO2datQWYCIUahqx0+9t2H5Op4s=
-github.com/getlantern/dhtup v0.0.0-20230218063409-258bc7570a27/go.mod h1:vHmyGO0tz9xO4rxi7rZCUjnI3GJ/26u6YHwdeamd3Bs=
 github.com/getlantern/errors v1.0.1/go.mod h1:l+xpFBrCtDLpK9qNjxs+cHU6+BAdlBaxHqikB6Lku3A=
 github.com/getlantern/errors v1.0.3 h1:Ne4Ycj7NI1BtSyAfVeAT/DNoxz7/S2BUc3L2Ht1YSHE=
 github.com/getlantern/errors v1.0.3/go.mod h1:m8C7H1qmouvsGpwQqk/6NUpIVMpfzUPn608aBZDYV04=
-github.com/getlantern/eventual/v2 v2.0.2 h1:7b3N2oQBVqSHwm/8u7C8b6W+OkkjgZSmwUc1AdIkrHc=
-github.com/getlantern/eventual/v2 v2.0.2/go.mod h1:o1VZHRk8UArBra+pwPSi23WrahBG4qgg4/ew6Mmlq84=
 github.com/getlantern/flashlight/v7 v7.6.53 h1:jdfDAh+TYyuMHlMD4WvSLO0YmTl/+dWxbnmIvQ5t9kk=
 github.com/getlantern/flashlight/v7 v7.6.53/go.mod h1:WmAJVBcdfEpio/cggjs12QhyrAaGCoemE5lfnVwPilk=
 github.com/getlantern/golog v0.0.0-20230503153817-8e72de7e0a65 h1:NlQedYmPI3pRAXJb+hLVVDGqfvvXGRPV8vp7XOjKAZ0=

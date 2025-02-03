@@ -8,24 +8,19 @@ require (
 	github.com/anacrolix/chansync v0.3.0
 	github.com/anacrolix/confluence v1.15.0
 	github.com/anacrolix/dht/v2 v2.20.0
-	github.com/anacrolix/generics v0.0.0-20230816105729-c755655aee45
 	github.com/anacrolix/log v0.14.6-0.20231202035202-ed7a02cad0b4
-	github.com/anacrolix/missinggo/v2 v2.7.2
 	github.com/anacrolix/publicip v0.2.0
 	github.com/anacrolix/squirrel v0.6.3
 	github.com/anacrolix/torrent v1.53.3
 	github.com/aws/aws-sdk-go v1.44.68
 	github.com/davecgh/go-spew v1.1.1
 	github.com/frankban/quicktest v1.14.6
-	github.com/getlantern/dhtup v0.0.0-20230218063409-258bc7570a27
 	github.com/getlantern/errors v1.0.3
-	github.com/getlantern/eventual/v2 v2.0.2
 	github.com/getlantern/flashlight/v7 v7.6.53
 	github.com/getlantern/golog v0.0.0-20230503153817-8e72de7e0a65
 	github.com/getlantern/meta-scrubber v0.0.1
 	github.com/getlantern/ops v0.0.0-20230519221840-1283e026181c
 	github.com/getsentry/sentry-go v0.20.0
-	github.com/go-llsqlite/crawshaw v0.5.1
 	github.com/google/uuid v1.3.1
 	github.com/gorilla/mux v1.8.0
 	github.com/kennygrant/sanitize v1.2.4
@@ -40,9 +35,11 @@ require (
 	github.com/ajwerner/btree v0.0.0-20211221152037-f427b3e689c0 // indirect
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
 	github.com/anacrolix/envpprof v1.3.0 // indirect
+	github.com/anacrolix/generics v0.0.0-20230816105729-c755655aee45 // indirect
 	github.com/anacrolix/go-libutp v1.3.1 // indirect
 	github.com/anacrolix/missinggo v1.3.0 // indirect
 	github.com/anacrolix/missinggo/perf v1.0.0 // indirect
+	github.com/anacrolix/missinggo/v2 v2.7.2 // indirect
 	github.com/anacrolix/mmsg v1.0.0 // indirect
 	github.com/anacrolix/multiless v0.3.1-0.20221221005021-2d12701f83f7 // indirect
 	github.com/anacrolix/stm v0.4.1-0.20221221005312-96d17df0e496 // indirect
@@ -68,6 +65,7 @@ require (
 	github.com/getlantern/yaml v0.0.0-20190801163808-0c9bb1ebf426 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-llsqlite/adapter v0.0.0-20230927005056-7f5ce7f0c916 // indirect
+	github.com/go-llsqlite/crawshaw v0.5.1 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect

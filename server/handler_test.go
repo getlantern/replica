@@ -1,181 +1,23 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/anacrolix/torrent"
-	"github.com/anacrolix/torrent/metainfo"
 	qt "github.com/frankban/quicktest"
-	"github.com/getlantern/dhtup"
 	"github.com/getlantern/golog/testlog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/getlantern/replica/projectpath"
 	"github.com/getlantern/replica/service"
 )
-
-func getDummySearchRequest(t *testing.T) (*http.Request, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-	req, err := http.NewRequestWithContext(ctx, "GET", "/search", nil)
-	require.NoError(t, err)
-	q := req.URL.Query()
-	q.Add("s", "cat")
-	q.Add("limit", "5")
-	req.URL.RawQuery = q.Encode()
-	return req, cancel
-}
-
-type MockDhtResourceImpl struct {
-	path string
-}
-
-func (me MockDhtResourceImpl) ID() string {
-	panic("should not be called")
-}
-
-type fileReaderCloserCtx struct {
-	r *os.File
-}
-
-func (r fileReaderCloserCtx) ReadContext(ctx context.Context, b []byte) (int, error) {
-	return r.r.Read(b)
-}
-
-func (r fileReaderCloserCtx) Close() error {
-	return r.r.Close()
-}
-
-func (me MockDhtResourceImpl) Open(ctx context.Context) (dhtup.OpenedResource, bool, error) {
-	f, err := os.Open(filepath.Join(me.path))
-	if err != nil {
-		return nil, false, err
-	}
-	return fileReaderCloserCtx{f}, false, nil
-}
-
-func (me MockDhtResourceImpl) FetchBep46Payload(context.Context) (metainfo.Hash, error) {
-	// Make it return "something". Returning an empty hash will not trigger a download
-	return metainfo.Hash{0x41}, nil
-}
-
-func (me MockDhtResourceImpl) FetchTorrentFileReader(context.Context, metainfo.Hash) (dhtup.OpenedResource, bool, error) {
-	f, err := os.Open(filepath.Join(me.path))
-	if err != nil {
-		return nil, false, err
-	}
-	return fileReaderCloserCtx{f}, false, nil
-}
-
-func TestSearch(t *testing.T) {
-	dir := t.TempDir()
-	input := NewHttpHandlerInput{}
-	input.SetDefaults()
-	input.RootUploadsDir = dir
-	input.ReplicaServiceClient = service.ServiceClient{
-		ReplicaServiceEndpoint: func() *url.URL {
-			return &url.URL{
-				Scheme: "https",
-				Host:   "replica-search-aws.lantern.io",
-			}
-		},
-		HttpClient: http.DefaultClient,
-	}
-	localIndexDhtResource := MockDhtResourceImpl{filepath.Join(projectpath.Root, "testdata", "backup-search-index.db")}
-
-	t.Run("Delay backup search roundtripper indefinitely. Primary search roundtripper should be used", func(t *testing.T) {
-		input.SetLocalIndex(
-			localIndexDhtResource,
-			10*time.Minute, // doesn't matter
-			t.TempDir(),    // doesn't matter
-			func(roundTripperKey string, req *http.Request) error {
-				if roundTripperKey == LocalIndexRoundTripperKey {
-					log.Debugf("Delaying %s", roundTripperKey)
-					time.Sleep(10000 * time.Second)
-				}
-				return nil
-			},
-		)
-		handler, err := NewHTTPHandler(input)
-		require.NoError(t, err)
-		defer handler.Close()
-
-		req, cancel := getDummySearchRequest(t)
-		defer cancel()
-		rr := httptest.NewRecorder()
-		handler.ServeHTTP(rr, req)
-
-		require.Equal(t, http.StatusOK, rr.Code)
-		require.Equal(t, PrimarySearchRoundTripperKey, rr.Header().Get(roundTripperHeaderKey))
-		fmt.Printf("rr.Body.String() = %+v\n", rr.Body.String())
-	})
-
-	t.Run("Delay primary search roundtripper indefinitely so that backup search roundtripper is used", func(t *testing.T) {
-		input.SetLocalIndex(
-			localIndexDhtResource,
-			10*time.Minute, // doesn't matter
-			t.TempDir(),    // doesn't matter
-			func(roundTripperKey string, req *http.Request) error {
-				if roundTripperKey == PrimarySearchRoundTripperKey {
-					log.Debugf("Delaying %s", roundTripperKey)
-					time.Sleep(100000 * time.Second)
-				}
-				return nil
-			},
-		)
-		handler, err := NewHTTPHandler(input)
-		require.NoError(t, err)
-		defer handler.Close()
-
-		req, cancel := getDummySearchRequest(t)
-		defer cancel()
-		rr := httptest.NewRecorder()
-		handler.ServeHTTP(rr, req)
-
-		require.Equal(t, http.StatusOK, rr.Code)
-		require.Equal(t, LocalIndexRoundTripperKey, rr.Header().Get(roundTripperHeaderKey))
-		fmt.Printf("rr.Body.String() = %+v\n", rr.Body.String())
-	})
-
-	t.Run("Return failure from primary search roundtripper so that backup search roundtripper is used", func(t *testing.T) {
-		input.SetLocalIndex(
-			localIndexDhtResource,
-			10*time.Minute, // doesn't matter
-			t.TempDir(),    // doesn't matter
-			func(roundTripperKey string, req *http.Request) error {
-				if roundTripperKey == PrimarySearchRoundTripperKey {
-					log.Debugf("Delaying %s", roundTripperKey)
-					return fmt.Errorf("whatever")
-				}
-				return nil
-			},
-		)
-		handler, err := NewHTTPHandler(input)
-		require.NoError(t, err)
-		defer handler.Close()
-
-		req, cancel := getDummySearchRequest(t)
-		defer cancel()
-		rr := httptest.NewRecorder()
-		handler.ServeHTTP(rr, req)
-
-		require.Equal(t, http.StatusOK, rr.Code)
-		require.Equal(t, LocalIndexRoundTripperKey, rr.Header().Get(roundTripperHeaderKey))
-		fmt.Printf("rr.Body.String() = %+v\n", rr.Body.String())
-	})
-}
 
 // TestUploadAndDelete makes sure we can upload and then subsequently delete a given file.
 func TestUploadAndDelete(t *testing.T) {

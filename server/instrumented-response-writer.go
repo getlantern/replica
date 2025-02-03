@@ -2,9 +2,6 @@ package server
 
 import (
 	"net/http"
-	"time"
-
-	"github.com/getlantern/dhtup"
 )
 
 // An http.ResponseWriter that exposes the ability to instrument operations.
@@ -29,18 +26,6 @@ func (rw *NoopInstrumentedResponseWriter) Set(key string, value interface{}) {
 func (rw *NoopInstrumentedResponseWriter) Finish() {}
 
 func (rw *NoopInstrumentedResponseWriter) FailIf(err error) {
-}
-
-// Set backup index values
-// Leave durations as 0 for sane defaults
-func (me *NewHttpHandlerInput) SetLocalIndex(
-	res dhtup.Resource,
-	checkForNewUpdatesEvery time.Duration,
-	configDir string,
-	requestInterceptor func(string, *http.Request) error,
-) {
-	me.LocalIndexDhtDownloader = RunLocalIndexDownloader(res, checkForNewUpdatesEvery, configDir)
-	me.DualSearchIndexRoundTripperInterceptRequestFunc = requestInterceptor
 }
 
 func (me *NewHttpHandlerInput) SetDefaults() {
